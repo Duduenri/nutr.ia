@@ -1,0 +1,270 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Sex {
+  FEMALE
+  MALE
+}
+
+enum Goal {
+  LOSE
+  MAINTAIN
+  GAIN
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum EntrySource {
+  PHOTO
+  TEXT
+  VOICE
+  BARCODE
+  SEARCH
+  MANUAL
+  RECIPE
+}
+
+enum FoodSource {
+  TACO
+  OPEN_FOOD_FACTS
+  CUSTOM
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  passwordHash   String
+  name           String
+  sex            Sex?
+  birthDate      DateTime?      @db.Date
+  heightCm       Float?
+  activityLevel  ActivityLevel?
+  goal           Goal?
+  startWeightKg  Float?
+  targetWeightKg Float?
+  targetDate     DateTime?      @db.Date
+  fastingPlan    String?
+  kcalTarget     Int?
+  proteinTarget  Int?
+  carbsTarget    Int?
+  fatTarget      Int?
+  fiberTarget    Int?
+  waterTargetMl  Int?
+  cupSizeMl      Int            @default(250)
+  stepsToken     String         @unique @default(cuid())
+  createdAt      DateTime       @default(now())
+
+  entries    MealEntry[]
+  waterLogs  WaterLog[]
+  weightLogs WeightLog[]
+  activities Activity[]
+  steps      DailySteps[]
+  notes      Note[]
+  messages   ChatMessage[]
+  plans      Plan[]
+  photos     Photo[]
+  foods      Food[]
+  fasts      Fast[]
+  recipes    Recipe[]
+}
+
+model Food {
+  id         String     @id @default(cuid())
+  name       String
+  searchName String
+  category   String?
+  source     FoodSource
+  barcode    String?
+  brand      String?
+  userId     String?
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kcal       Float
+  protein    Float
+  carbs      Float
+  fat        Float
+  fiber      Float?
+  micros     Json?
+  servingG   Float?
+  createdAt  DateTime   @default(now())
+
+  entries MealEntry[]
+
+  @@index([barcode])
+  @@index([userId])
+  @@index([searchName])
+}
+
+model Photo {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  path      String
+  createdAt DateTime    @default(now())
+
+  entries MealEntry[]
+
+  @@index([userId, createdAt])
+}
+
+model MealEntry {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime    @db.Date
+  meal      MealType
+  name      String
+  grams     Float
+  kcal      Float
+  protein   Float
+  carbs     Float
+  fat       Float
+  fiber     Float?
+  micros    Json?
+  source    EntrySource
+  foodId    String?
+  food      Food?       @relation(fields: [foodId], references: [id], onDelete: SetNull)
+  photoId   String?
+  photo     Photo?      @relation(fields: [photoId], references: [id], onDelete: SetNull)
+  createdAt DateTime    @default(now())
+
+  @@index([userId, date])
+}
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  ml        Int
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  kg        Float
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  name      String
+  minutes   Int
+  kcal      Int
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model DailySteps {
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date   DateTime @db.Date
+  steps  Int
+
+  @@id([userId, date])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Plan {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Fast {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startAt   DateTime
+  goalHours Int
+  endAt     DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, startAt])
+}
+
+model Recipe {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  emoji       String
+  meal        MealType
+  prepMinutes Int
+  servings    Int
+  servingG    Float
+  kcal        Float
+  protein     Float
+  carbs       Float
+  fat         Float
+  fiber       Float
+  ingredients Json
+  steps       Json
+  tip         String?
+  favorite    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
