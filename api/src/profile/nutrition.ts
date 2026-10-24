@@ -82,6 +82,7 @@ export interface TargetInput {
   targetDate: Date | null;
   activityLevel: ActivityLevel;
   goal: Goal;
+  bariatric: boolean;
 }
 
 export interface Targets {
@@ -126,7 +127,10 @@ export function computeTargets(input: TargetInput): Targets {
     input.goal === 'LOSE' && input.targetWeightKg
       ? Math.min(input.weightKg, input.targetWeightKg)
       : input.weightKg;
-  const protein = Math.round(proteinBaseKg * PROTEIN_G_PER_KG[input.goal]);
+  const idealWeightKg = 22 * (input.heightCm / 100) ** 2;
+  const protein = input.bariatric
+    ? Math.min(90, Math.max(60, Math.round(idealWeightKg * 1.2)))
+    : Math.round(proteinBaseKg * PROTEIN_G_PER_KG[input.goal]);
   const fat = Math.round((kcal * 0.27) / 9);
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
 

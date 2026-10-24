@@ -30,6 +30,8 @@ export function ProfileForm({
     currentWeightKg: profile.currentWeightKg?.toString() ?? "",
     targetWeightKg: profile.targetWeightKg?.toString() ?? "",
     targetDate: profile.targetDate?.slice(0, 10) ?? "",
+    bariatric: profile.bariatric,
+    surgeryDate: profile.surgeryDate?.slice(0, 10) ?? "",
     goal: profile.goal ?? ("LOSE" as Goal),
     activityLevel: profile.activityLevel ?? ("LIGHT" as ActivityLevel),
   });
@@ -46,6 +48,8 @@ export function ProfileForm({
         heightCm: parseHeightCm(form.heightCm),
         targetWeightKg: parseFloat(form.targetWeightKg.replace(",", ".")),
         targetDate: form.targetDate || null,
+        bariatric: form.bariatric,
+        surgeryDate: form.bariatric ? form.surgeryDate || null : null,
         goal: form.goal,
         activityLevel: form.activityLevel,
         ...(weightChanged ? { currentWeightKg: weight, today: today() } : {}),
@@ -194,6 +198,41 @@ export function ProfileForm({
           ))}
         </select>
       </Field>
+      <label className="flex items-start gap-3 rounded-2xl border-2 border-slate-200 p-3">
+        <input
+          type="checkbox"
+          className="mt-1 h-5 w-5 accent-mint-500"
+          checked={form.bariatric}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, bariatric: e.target.checked }))
+          }
+        />
+        <span>
+          <span className="block font-bold">Fiz cirurgia bariátrica</span>
+          <span className="text-sm text-ink/60">
+            Destaca a proteína do dia e ativa o controle de reposição
+            (suplementos e vitaminas).
+          </span>
+        </span>
+      </label>
+      {form.bariatric && (
+        <>
+          <Field label="Data da cirurgia (opcional)">
+            <input
+              className={inputClass}
+              type="date"
+              max={today()}
+              value={form.surgeryDate}
+              onChange={set("surgeryDate")}
+            />
+          </Field>
+          <p className="-mt-2 rounded-2xl bg-sun/30 px-4 py-3 text-sm">
+            A meta de proteína vira o mínimo pós-bariátrica (60 g/dia ou mais,
+            pelo seu peso ideal). Se seu nutricionista passou outra meta, ajuste
+            em Perfil → ⚙️ → Metas.
+          </p>
+        </>
+      )}
       <ErrorText error={mutation.error} />
       <Button className="w-full" loading={mutation.isPending}>
         {submitLabel}

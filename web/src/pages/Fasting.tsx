@@ -35,6 +35,7 @@ export function FastingPage() {
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["fasting"] });
     void qc.invalidateQueries({ queryKey: ["missions"] });
+    void qc.invalidateQueries({ queryKey: ["game"] });
   };
 
   return (

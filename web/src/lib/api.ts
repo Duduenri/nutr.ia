@@ -22,6 +22,8 @@ export interface Profile {
   targetDate: string | null;
   currentWeightKg: number | null;
   fastingPlan: string | null;
+  bariatric: boolean;
+  surgeryDate: string | null;
   goalPlan: GoalPlan | null;
   kcalTarget: number | null;
   proteinTarget: number | null;
@@ -166,11 +168,20 @@ export interface Mission {
   title: string;
   progress: number;
   goal: number;
+  gems: number;
+  claimed: boolean;
 }
 
 export interface Missions {
   streak: number;
-  month: { title: string; daysLeft: number; progress: number; goal: number };
+  month: {
+    title: string;
+    daysLeft: number;
+    progress: number;
+    goal: number;
+    gems: number;
+    claimed: boolean;
+  };
   daily: Mission[];
   weekly: Mission[];
 }
@@ -349,4 +360,54 @@ export function foodToItem(food: Food, grams: number): FoodItem {
     },
     grams,
   );
+}
+
+export interface AchievementInfo {
+  key: string;
+  title: string;
+  description: string;
+  emoji: string;
+  gems: number;
+  unlockedAt?: string | null;
+}
+
+export interface GameState {
+  petName: string | null;
+  gems: number;
+  level: number;
+  current: number;
+  next: number | null;
+  lifetimeGems: number;
+  owned: string[];
+  equipped: string[];
+  newAchievements: AchievementInfo[];
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  slot: "hat" | "glasses" | "color" | "garden";
+  price: number;
+  minLevel: number;
+  owned: boolean;
+  locked: boolean;
+}
+
+export interface ShopState {
+  gems: number;
+  level: number;
+  deal: { itemId: string; price: number } | null;
+  today: string[];
+  items: ShopItem[];
+}
+
+export interface Supplement {
+  id: string;
+  name: string;
+  emoji: string;
+  dose: string | null;
+  proteinG: number | null;
+  kcal: number | null;
+  timesPerDay: number;
+  logs: { id: string; takenAt: string }[];
 }

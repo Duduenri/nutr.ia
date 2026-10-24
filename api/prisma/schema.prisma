@@ -42,6 +42,7 @@ enum EntrySource {
   SEARCH
   MANUAL
   RECIPE
+  SUPPLEMENT
 }
 
 enum FoodSource {
@@ -69,6 +70,9 @@ model User {
   targetWeightKg Float?
   targetDate     DateTime?      @db.Date
   fastingPlan    String?
+  petName        String?
+  bariatric      Boolean        @default(false)
+  surgeryDate    DateTime?      @db.Date
   kcalTarget     Int?
   proteinTarget  Int?
   carbsTarget    Int?
@@ -79,18 +83,23 @@ model User {
   stepsToken     String         @unique @default(cuid())
   createdAt      DateTime       @default(now())
 
-  entries    MealEntry[]
-  waterLogs  WaterLog[]
-  weightLogs WeightLog[]
-  activities Activity[]
-  steps      DailySteps[]
-  notes      Note[]
-  messages   ChatMessage[]
-  plans      Plan[]
-  photos     Photo[]
-  foods      Food[]
-  fasts      Fast[]
-  recipes    Recipe[]
+  entries        MealEntry[]
+  waterLogs      WaterLog[]
+  weightLogs     WeightLog[]
+  activities     Activity[]
+  steps          DailySteps[]
+  notes          Note[]
+  messages       ChatMessage[]
+  plans          Plan[]
+  photos         Photo[]
+  foods          Food[]
+  fasts          Fast[]
+  recipes        Recipe[]
+  gemTxs         GemTx[]
+  achievements   UserAchievement[]
+  items          UserItem[]
+  supplements    Supplement[]
+  supplementLogs SupplementLog[]
 }
 
 model Food {
@@ -120,11 +129,11 @@ model Food {
 }
 
 model Photo {
-  id        String      @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   path      String
-  createdAt DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   entries MealEntry[]
 
@@ -268,4 +277,66 @@ model Recipe {
   createdAt   DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+model GemTx {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String
+  refKey    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, refKey])
+  @@index([userId, createdAt])
+}
+
+model UserAchievement {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key        String
+  unlockedAt DateTime @default(now())
+  seen       Boolean  @default(false)
+
+  @@id([userId, key])
+}
+
+model UserItem {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId    String
+  equipped  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@id([userId, itemId])
+}
+
+model Supplement {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  emoji       String
+  dose        String?
+  proteinG    Float?
+  kcal        Float?
+  timesPerDay Int             @default(1)
+  createdAt   DateTime        @default(now())
+  logs        SupplementLog[]
+
+  @@index([userId])
+}
+
+model SupplementLog {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplementId String
+  supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+  date         DateTime   @db.Date
+  takenAt      DateTime
+  mealEntryId  String?
+
+  @@index([userId, date])
 }

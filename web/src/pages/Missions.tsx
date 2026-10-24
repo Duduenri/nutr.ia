@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErrorText, ProgressBar, Spinner } from "../components/ui";
-import { api, type Mission, type Missions } from "../lib/api";
+import { api, type GameState, type Mission, type Missions } from "../lib/api";
 import { today } from "../lib/date";
 
 export function MissionsPage() {
@@ -8,6 +8,15 @@ export function MissionsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["missions", day],
     queryFn: () => api.get<Missions>(`/missions/${day}`),
+  });
+  const qc = useQueryClient();
+  const claim = useMutation({
+    mutationFn: (v: { scope: "daily" | "weekly" | "month"; key: string }) =>
+      api.post<GameState>("/missions/claim", { date: day, ...v }),
+    onSuccess: (g) => {
+      qc.setQueryData(["game"], g);
+      void qc.invalidateQueries({ queryKey: ["missions"] });
+    },
   });
 
   return (
@@ -38,11 +47,22 @@ export function MissionsPage() {
             <div className="mb-2 font-extrabold">
               Conclua {data.month.goal} missões no mês
             </div>
-            <MissionBar
-              progress={data.month.progress}
-              goal={data.month.goal}
-              color="bg-peach-400"
-            />
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <MissionBar
+                  progress={data.month.progress}
+                  goal={data.month.goal}
+                  color="bg-peach-400"
+                />
+              </div>
+              <Reward
+                done={data.month.progress >= data.month.goal}
+                claimed={data.month.claimed}
+                gems={data.month.gems}
+                onClaim={() => claim.mutate({ scope: "month", key: "month" })}
+                pending={claim.isPending && claim.variables?.key === "month"}
+              />
+            </div>
           </div>
         )}
       </header>
@@ -60,6 +80,10 @@ export function MissionsPage() {
               hint="renova à meia-noite"
               missions={data.daily}
               color="bg-mint-500"
+              onClaim={(key) => claim.mutate({ scope: "daily", key })}
+              pendingKey={
+                claim.isPending ? (claim.variables?.key ?? null) : null
+              }
             />
             <hr className="border-slate-100" />
             <Section
@@ -67,6 +91,10 @@ export function MissionsPage() {
               hint="seg a dom"
               missions={data.weekly}
               color="bg-sun"
+              onClaim={(key) => claim.mutate({ scope: "weekly", key })}
+              pendingKey={
+                claim.isPending ? (claim.variables?.key ?? null) : null
+              }
             />
             <p className="pb-4 text-center text-sm text-ink/50">
               🔥 Sequência: dias seguidos com pelo menos uma refeição
@@ -79,16 +107,61 @@ export function MissionsPage() {
   );
 }
 
+function Reward({
+  done,
+  claimed,
+  gems,
+  onClaim,
+  pending,
+}: {
+  done: boolean;
+  claimed: boolean;
+  gems: number;
+  onClaim: () => void;
+  pending: boolean;
+}) {
+  if (claimed) {
+    return (
+      <div className="grid h-14 w-16 place-items-center rounded-2xl bg-mint-50 text-center text-xs font-extrabold text-mint-500">
+        ✓<br />
+        💎 {gems}
+      </div>
+    );
+  }
+  if (done) {
+    return (
+      <button
+        onClick={onClaim}
+        disabled={pending}
+        className="grid h-14 w-16 animate-pulse place-items-center rounded-2xl bg-sun/50 text-center text-xs font-extrabold disabled:opacity-50"
+      >
+        🎁
+        <span>+{gems} 💎</span>
+      </button>
+    );
+  }
+  return (
+    <div className="grid h-14 w-16 place-items-center rounded-2xl bg-soft text-center text-xs font-bold text-ink/40">
+      🔒
+      <span>{gems} 💎</span>
+    </div>
+  );
+}
+
 function Section({
   title,
   hint,
   missions,
   color,
+  onClaim,
+  pendingKey,
 }: {
   title: string;
   hint: string;
   missions: Mission[];
   color: string;
+  onClaim: (key: string) => void;
+  pendingKey: string | null;
 }) {
   return (
     <section>
@@ -107,11 +180,13 @@ function Section({
                 <div className="mb-2 text-lg font-extrabold">{m.title}</div>
                 <MissionBar progress={m.progress} goal={m.goal} color={color} />
               </div>
-              <div
-                className={`grid h-14 w-14 place-items-center rounded-2xl text-3xl ${done ? "bg-sun/40" : "bg-soft grayscale"}`}
-              >
-                {done ? "🎁" : "🔒"}
-              </div>
+              <Reward
+                done={done}
+                claimed={m.claimed}
+                gems={m.gems}
+                onClaim={() => onClaim(m.key)}
+                pending={pendingKey === m.key}
+              />
             </li>
           );
         })}

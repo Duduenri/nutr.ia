@@ -42,6 +42,8 @@ export class UserContextService {
       user.targetWeightKg &&
         `Peso desejado: ${user.targetWeightKg} kg${user.targetDate ? ` até ${formatDay(user.targetDate)}` : ''}`,
       user.fastingPlan && `Plano de jejum intermitente: ${user.fastingPlan}`,
+      user.bariatric &&
+        `Fez cirurgia bariátrica${user.surgeryDate ? ` em ${formatDay(user.surgeryDate)}` : ''} — priorize proteína, porções pequenas e a orientação da equipe dela`,
       weights.length &&
         `Pesagens recentes: ${weights.map((w) => `${formatDay(w.date)} ${w.kg} kg`).join(', ')}`,
       `Metas diárias: ${user.kcalTarget} kcal, ${user.proteinTarget} g proteína, ${user.carbsTarget} g carboidrato, ${user.fatTarget} g gordura, ${user.waterTargetMl} ml água`,

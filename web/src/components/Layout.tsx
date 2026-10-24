@@ -1,17 +1,22 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { AchievementPopup } from "./AchievementPopup";
+
+const PET_ROUTES = ["/bichinho", "/missoes", "/conquistas"];
 
 const TABS = [
   { to: "/", label: "Diário", icon: DiaryIcon },
   { to: "/receitas", label: "Receitas", icon: BowlIcon },
   { to: "/coach", label: "Coach", icon: CoachIcon },
-  { to: "/missoes", label: "Missões", icon: ChestIcon },
+  { to: "/bichinho", label: "Bichinho", icon: SproutIcon },
   { to: "/perfil", label: "Perfil", icon: UserIcon },
 ];
 
 export function Layout() {
+  const { pathname } = useLocation();
   return (
     <div className="mx-auto min-h-dvh max-w-lg pb-24">
       <Outlet />
+      <AchievementPopup />
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-lg">
           {TABS.map(({ to, label, icon: Icon }) => (
@@ -21,16 +26,24 @@ export function Layout() {
               end={to === "/"}
               className={({ isActive }) =>
                 `flex flex-1 flex-col items-center gap-0.5 pt-2 text-xs font-semibold ${
-                  isActive ? "text-ink" : "text-ink/40"
+                  isActive ||
+                  (to === "/bichinho" && PET_ROUTES.includes(pathname))
+                    ? "text-ink"
+                    : "text-ink/40"
                 }`
               }
             >
-              {({ isActive }) => (
-                <>
-                  <Icon active={isActive} />
-                  {label}
-                </>
-              )}
+              {({ isActive }) => {
+                const active =
+                  isActive ||
+                  (to === "/bichinho" && PET_ROUTES.includes(pathname));
+                return (
+                  <>
+                    <Icon active={active} />
+                    {label}
+                  </>
+                );
+              }}
             </NavLink>
           ))}
         </div>
@@ -103,7 +116,7 @@ function CoachIcon({ active }: IconProps) {
   );
 }
 
-function ChestIcon({ active }: IconProps) {
+function SproutIcon({ active }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -112,16 +125,15 @@ function ChestIcon({ active }: IconProps) {
       stroke="currentColor"
       strokeWidth="1.8"
     >
-      <rect x="3" y="6" width="18" height="14" rx="3" />
-      <path d="M3 11h18" stroke={active ? "white" : "currentColor"} />
-      <rect
-        x="10"
-        y="9.5"
-        width="4"
-        height="4"
-        rx="1"
-        fill={active ? "white" : "none"}
-        stroke={active ? "white" : "currentColor"}
+      <ellipse cx="12" cy="17.5" rx="7" ry="4.5" />
+      <path d="M12 13V8" strokeLinecap="round" fill="none" />
+      <path
+        d="M12 9C10 6 7 6 5.5 7.5 7 10 10 10 12 9z"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 8c2-3.5 5.5-4 7-2.5C17.5 8.5 14.5 9.5 12 8z"
+        strokeLinejoin="round"
       />
     </svg>
   );

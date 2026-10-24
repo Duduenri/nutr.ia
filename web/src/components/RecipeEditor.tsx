@@ -170,6 +170,7 @@ export function RecipeEditor({
       qc.setQueryData<Recipe[]>(["recipes"], (old = []) =>
         recipe ? old.map((o) => (o.id === r.id ? r : o)) : [r, ...old],
       );
+      void qc.invalidateQueries({ queryKey: ["game"] });
       onSaved(r);
     },
   });

@@ -31,7 +31,8 @@ import {
   relativeDayTime,
   useNow,
 } from "../lib/fasting";
-import { useFasting, useInvalidateDay } from "../lib/hooks";
+import { useFasting, useInvalidateDay, useProfile } from "../lib/hooks";
+import { ProteinCard, SupplementsCard } from "../components/Bariatric";
 
 export function DiaryPage() {
   const [params, setParams] = useSearchParams();
@@ -39,6 +40,7 @@ export function DiaryPage() {
   const setDate = (d: string) =>
     setParams(d === today() ? {} : { d }, { replace: true });
 
+  const { data: profile } = useProfile();
   const { data, isLoading, error } = useQuery({
     queryKey: ["diary", date],
     queryFn: () => api.get<Diary>(`/diary/${date}`),
@@ -62,6 +64,12 @@ export function DiaryPage() {
         {data && (
           <>
             <OverTargetCard diary={data} date={date} />
+            {profile?.bariatric && (
+              <>
+                <ProteinCard diary={data} />
+                <SupplementsCard date={date} />
+              </>
+            )}
             <Meals diary={data} date={date} />
             <FastingCard />
             <Water diary={data} date={date} />
@@ -306,8 +314,8 @@ function Meals({ diary, date }: { diary: Diary; date: string }) {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{e.name}</span>
                       <span className="text-xs text-ink/60">
-                        {fmt(e.grams)} g · P {fmt(e.protein)} · C {fmt(e.carbs)}{" "}
-                        · G {fmt(e.fat)}
+                        {e.grams > 0 ? `${fmt(e.grams)} g · ` : ""}P{" "}
+                        {fmt(e.protein)} · C {fmt(e.carbs)} · G {fmt(e.fat)}
                       </span>
                     </span>
                     <span className="font-extrabold">{fmt(e.kcal)}</span>

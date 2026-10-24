@@ -1,8 +1,34 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { IsDateString, IsIn, IsString } from 'class-validator';
 import { MealEntry, User } from '@prisma/client';
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { addDays, formatDay, parseDay } from '../common/date';
+import { MISSION_GEMS } from '../game/catalog';
+import { GameService } from '../game/game.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+class ClaimDto {
+  @IsDateString()
+  date!: string;
+
+  @IsIn(['daily', 'weekly', 'month'])
+  scope!: 'daily' | 'weekly' | 'month';
+
+  @IsString()
+  key!: string;
+}
+
+const CLAIM_WINDOW_MS = 2 * 86_400_000;
 
 interface DayData {
   entries: MealEntry[];
@@ -79,10 +105,85 @@ function mondayOf(date: Date): Date {
 @Controller('missions')
 @UseGuards(AuthGuard)
 export class MissionsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly game: GameService,
+  ) {}
 
   @Get(':date')
   async get(@UserId() userId: string, @Param('date') day: string) {
+    const data = await this.compute(userId, day);
+    const refs = this.refKeys(day);
+    const claimed = new Set(
+      (
+        await this.prisma.gemTx.findMany({
+          where: { userId, refKey: { startsWith: 'mission:' } },
+          select: { refKey: true },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+        })
+      ).map((t) => t.refKey),
+    );
+    const mark = (scope: 'daily' | 'weekly', m: Mission) => ({
+      ...m,
+      gems: MISSION_GEMS[scope],
+      claimed: claimed.has(refs[scope](m.key)),
+    });
+    return {
+      ...data,
+      month: {
+        ...data.month,
+        gems: MISSION_GEMS.month,
+        claimed: claimed.has(refs.month()),
+      },
+      daily: data.daily.map((m) => mark('daily', m)),
+      weekly: data.weekly.map((m) => mark('weekly', m)),
+    };
+  }
+
+  @Post('claim')
+  @HttpCode(200)
+  async claim(@UserId() userId: string, @Body() dto: ClaimDto) {
+    const day = dto.date.slice(0, 10);
+    if (Math.abs(parseDay(day).getTime() - Date.now()) > CLAIM_WINDOW_MS) {
+      throw new BadRequestException('Essa missão já expirou');
+    }
+    const data = await this.compute(userId, day);
+    const refs = this.refKeys(day);
+    let done: boolean;
+    let refKey: string;
+    let title: string;
+    if (dto.scope === 'month') {
+      done = data.month.progress >= data.month.goal;
+      refKey = refs.month();
+      title = data.month.title;
+    } else {
+      const mission = data[dto.scope].find((m) => m.key === dto.key);
+      if (!mission) throw new NotFoundException('Missão não encontrada');
+      done = mission.progress >= mission.goal;
+      refKey = refs[dto.scope](dto.key);
+      title = mission.title;
+    }
+    if (!done) throw new BadRequestException('Missão ainda não concluída');
+    await this.game.award(
+      userId,
+      refKey,
+      MISSION_GEMS[dto.scope],
+      `Missão: ${title}`,
+    );
+    return this.game.state(userId);
+  }
+
+  private refKeys(day: string) {
+    const weekStart = formatDay(mondayOf(parseDay(day)));
+    return {
+      daily: (key: string) => `mission:d:${day}:${key}`,
+      weekly: (key: string) => `mission:w:${weekStart}:${key}`,
+      month: () => `mission:m:${day.slice(0, 7)}`,
+    };
+  }
+
+  private async compute(userId: string, day: string) {
     const date = parseDay(day);
     const monthStart = new Date(
       Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1),

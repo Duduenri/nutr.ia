@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ActivityLevel, Goal, Sex, User } from '@prisma/client';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -75,6 +76,14 @@ class UpdateProfileDto {
   @Min(100)
   @Max(1000)
   cupSizeMl?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  bariatric?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  surgeryDate?: string | null;
 }
 
 class OverrideTargetsDto {
@@ -119,12 +128,23 @@ export class ProfileController {
 
   @Patch()
   async update(@UserId() userId: string, @Body() dto: UpdateProfileDto) {
-    const { currentWeightKg, birthDate, today, targetDate, ...rest } = dto;
+    const {
+      currentWeightKg,
+      birthDate,
+      today,
+      targetDate,
+      surgeryDate,
+      ...rest
+    } = dto;
     let user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...rest,
         ...(birthDate ? { birthDate: parseDay(birthDate.slice(0, 10)) } : {}),
+        ...(surgeryDate === null ? { surgeryDate: null } : {}),
+        ...(surgeryDate
+          ? { surgeryDate: parseDay(surgeryDate.slice(0, 10)) }
+          : {}),
         ...(targetDate === null ? { targetDate: null } : {}),
         ...(targetDate
           ? { targetDate: parseDay(targetDate.slice(0, 10)) }
@@ -188,6 +208,7 @@ export class ProfileController {
         targetDate: user.targetDate,
         activityLevel: user.activityLevel,
         goal: user.goal,
+        bariatric: user.bariatric,
       });
       const updated = await this.prisma.user.update({
         where: { id: userId },

@@ -11,6 +11,8 @@ import { DiaryController } from './diary/diary.controller';
 import { DiaryService } from './diary/diary.service';
 import { FastingController } from './fasting/fasting.controller';
 import { FoodsController } from './foods/foods.controller';
+import { GameController } from './game/game.controller';
+import { GameService } from './game/game.service';
 import { IntegrationsController } from './integrations/integrations.controller';
 import { MissionsController } from './missions/missions.controller';
 import { PhotosController } from './photos/photos.controller';
@@ -19,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.service';
 import { ProfileController } from './profile/profile.controller';
 import { RecipesController } from './recipes/recipes.controller';
 import { StatsController } from './stats/stats.controller';
+import { SupplementsController } from './supplements/supplements.controller';
 
 @Module({
   imports: [
@@ -42,6 +45,8 @@ import { StatsController } from './stats/stats.controller';
     IntegrationsController,
     FastingController,
     RecipesController,
+    GameController,
+    SupplementsController,
   ],
   providers: [
     AuthGuard,
@@ -49,6 +54,7 @@ import { StatsController } from './stats/stats.controller';
     PhotosService,
     DiaryService,
     UserContextService,
+    GameService,
   ],
 })
 export class AppModule {}

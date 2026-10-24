@@ -8,6 +8,7 @@ import { AuthPage } from "./pages/Auth";
 import { DiaryPage } from "./pages/Diary";
 import { FastingPage } from "./pages/Fasting";
 import { MissionsPage } from "./pages/Missions";
+import { PetHomePage } from "./pages/PetHome";
 import { Onboarding } from "./pages/Onboarding";
 
 const AddFoodPage = lazy(() =>
@@ -18,6 +19,15 @@ const CoachPage = lazy(() =>
 );
 const RecipesPage = lazy(() =>
   import("./pages/Recipes").then((m) => ({ default: m.RecipesPage })),
+);
+const ShopPage = lazy(() =>
+  import("./pages/Shop").then((m) => ({ default: m.ShopPage })),
+);
+const WardrobePage = lazy(() =>
+  import("./pages/Wardrobe").then((m) => ({ default: m.WardrobePage })),
+);
+const AchievementsPage = lazy(() =>
+  import("./pages/Achievements").then((m) => ({ default: m.AchievementsPage })),
 );
 const ProfilePage = lazy(() =>
   import("./pages/Profile").then((m) => ({ default: m.ProfilePage })),
@@ -80,12 +90,16 @@ export default function App() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/adicionar" element={<AddFoodPage />} />
+        <Route path="/loja" element={<ShopPage />} />
+        <Route path="/meus-itens" element={<WardrobePage />} />
         <Route element={<Layout />}>
           <Route index element={<DiaryPage />} />
           <Route path="/receitas" element={<RecipesPage />} />
           <Route path="/jejum" element={<FastingPage />} />
           <Route path="/coach" element={<CoachPage />} />
           <Route path="/missoes" element={<MissionsPage />} />
+          <Route path="/bichinho" element={<PetHomePage />} />
+          <Route path="/conquistas" element={<AchievementsPage />} />
           <Route path="/perfil" element={<ProfilePage profile={profile} />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
