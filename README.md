@@ -21,8 +21,10 @@ O site fica em `http://IP-DA-VPS:WEB_PORT`. A tabela TACO é carregada automatic
 
 Câmera ao vivo para código de barras, reconhecimento de voz e cookie seguro só funcionam em HTTPS. Opções:
 
-- **Sem proxy na VPS:** aponte um domínio para a VPS, preencha `DOMAIN` no `.env` e rode `docker compose --profile https up -d --build`. O Caddy emite o certificado sozinho.
-- **Já tem Nginx/Traefik:** faça proxy do seu domínio para `localhost:WEB_PORT`.
+- **Sem proxy na VPS:** aponte um domínio para a VPS, preencha `DOMAIN` e `COMPOSE_PROFILES=https` no `.env` e rode `docker compose up -d --build`. O Caddy emite o certificado sozinho.
+- **Já tem Caddy/Nginx/Traefik:** use `WEB_PORT=127.0.0.1:8080` e faça proxy do seu domínio para `localhost:8080`.
+
+Deploy a partir da sua máquina: `scripts/deploy.sh root@IP` (envia o código com rsync e sobe os containers; o `.env` fica só no servidor).
 
 Sem HTTPS, use `COOKIE_SECURE=false` (foto, texto e busca continuam funcionando).
 

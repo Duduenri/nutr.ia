@@ -7,4 +7,4 @@ rsync -az --delete -e "$SSH" \
   --exclude node_modules --exclude dist --exclude .env --exclude uploads \
   --exclude backups --exclude '*.log' \
   ./ "$HOST:/opt/nutri/"
-$SSH "$HOST" 'cd /opt/nutri && docker compose --profile https up -d --build && docker compose --profile https ps'
+$SSH "$HOST" 'cd /opt/nutri && docker compose up -d --build && docker compose ps'
