@@ -43,7 +43,7 @@ export function ProfileForm({
         name: form.name,
         sex: form.sex,
         birthDate: form.birthDate,
-        heightCm: parseFloat(form.heightCm.replace(",", ".")),
+        heightCm: parseHeightCm(form.heightCm),
         targetWeightKg: parseFloat(form.targetWeightKg.replace(",", ".")),
         targetDate: form.targetDate || null,
         goal: form.goal,
@@ -113,6 +113,7 @@ export function ProfileForm({
             inputMode="decimal"
             value={form.heightCm}
             onChange={set("heightCm")}
+            placeholder="159"
             required
           />
         </Field>
@@ -199,4 +200,9 @@ export function ProfileForm({
       </Button>
     </form>
   );
+}
+
+function parseHeightCm(value: string): number {
+  const n = parseFloat(value.replace(",", "."));
+  return n > 0 && n < 3 ? Math.round(n * 100) : n;
 }

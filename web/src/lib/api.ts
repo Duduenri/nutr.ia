@@ -79,6 +79,7 @@ export interface Recipe {
   steps: string[];
   tip: string | null;
   favorite: boolean;
+  custom: boolean;
   createdAt: string;
 }
 
@@ -241,7 +242,10 @@ async function request<T>(
     body: isForm ? body : body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    let message = "Algo deu errado";
+    let message =
+      res.status >= 502
+        ? "O servidor está reiniciando. Tente de novo em alguns segundos."
+        : "Algo deu errado";
     try {
       const data = (await res.json()) as { message?: string | string[] };
       if (data.message) {
@@ -261,6 +265,7 @@ export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
+  put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   del: <T>(path: string) => request<T>("DELETE", path),
 };
 

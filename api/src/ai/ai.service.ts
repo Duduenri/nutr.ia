@@ -105,6 +105,22 @@ const MEAL_PT = {
   SNACK: 'lanche',
 };
 
+const PlanQuestionsSchema = z.object({
+  questions: z.array(
+    z.object({
+      question: z.string(),
+      options: z
+        .array(z.string())
+        .describe(
+          '2 a 6 respostas curtas para tocar; vazio se for pergunta aberta',
+        ),
+      multiple: z.boolean().describe('true se pode marcar várias opções'),
+    }),
+  ),
+});
+
+export type PlanQuestions = z.infer<typeof PlanQuestionsSchema>;
+
 export interface CoachContext {
   profile: string;
   today: string;
@@ -219,6 +235,67 @@ export class AiService {
       );
     }
     return response.output_parsed.recipes;
+  }
+
+  async parseRecipe(text: string): Promise<GeneratedRecipe> {
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: `Você é nutricionista brasileira e organiza receitas enviadas pela usuária.
+Mantenha exatamente os ingredientes, quantidades e passos que ela escreveu; só organize e complete o que faltar.
+Se ela não disser quantas porções rende ou o tempo de preparo, estime de forma realista.
+Calcule calorias e macros POR PORÇÃO com base na Tabela TACO e nos rótulos comuns no Brasil, coerentes com as quantidades.
+Se o texto não for uma receita, devolva o melhor que conseguir com o que foi enviado.`,
+        input: text,
+        text: { format: zodTextFormat(RecipeSchema, 'recipe') },
+      }),
+    );
+    if (!response.output_parsed) {
+      this.logger.warn(`Recipe parse failed: status=${response.status}`);
+      throw new UnprocessableEntityException(
+        'Não consegui organizar essa receita. Tente escrever de outro jeito.',
+      );
+    }
+    return response.output_parsed;
+  }
+
+  async planQuestions(
+    context: CoachContext,
+    kind: 'diet' | 'workout',
+  ): Promise<PlanQuestions> {
+    const topic =
+      kind === 'diet'
+        ? 'um plano alimentar: o que ela tem em casa agora (pergunta aberta, sempre a primeira), alimentos que não come ou não gosta, quantas refeições faz e horários, tempo para cozinhar, orçamento'
+        : 'um plano de treino: onde treina (casa, academia, ao ar livre), equipamentos disponíveis, quantos dias por semana, quanto tempo por treino, dores ou limitações, o que gosta de fazer';
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: coachSystem(context),
+        input: `Antes de montar ${topic}, faça de 3 a 5 perguntas curtas e diretas para personalizar. Não pergunte o que já está no perfil. Dê opções de resposta curtas quando fizer sentido.`,
+        text: { format: zodTextFormat(PlanQuestionsSchema, 'plan_questions') },
+      }),
+    );
+    if (!response.output_parsed) {
+      throw new UnprocessableEntityException(
+        'Não consegui preparar as perguntas. Tente de novo.',
+      );
+    }
+    return response.output_parsed;
+  }
+
+  revisePlan(
+    context: CoachContext,
+    plan: string,
+    request: string,
+  ): Promise<string> {
+    return this.chat(context, [
+      {
+        role: 'user',
+        content: `Este é o meu plano atual:\n\n${plan}\n\nAjuste o plano assim: "${request}". Devolva o plano completo já ajustado, no mesmo formato, mantendo o que não precisa mudar.`,
+      },
+    ]);
   }
 
   private async analyzeFood(

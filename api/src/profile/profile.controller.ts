@@ -38,8 +38,8 @@ class UpdateProfileDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(100)
-  @Max(250)
+  @Min(100, { message: 'Altura deve estar entre 100 e 250 cm (ex.: 159)' })
+  @Max(250, { message: 'Altura deve estar entre 100 e 250 cm (ex.: 159)' })
   heightCm?: number;
 
   @IsOptional()
@@ -52,8 +52,8 @@ class UpdateProfileDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(30)
-  @Max(300)
+  @Min(30, { message: 'Peso deve estar entre 30 e 300 kg' })
+  @Max(300, { message: 'Peso deve estar entre 30 e 300 kg' })
   currentWeightKg?: number;
 
   @IsOptional()
@@ -66,8 +66,8 @@ class UpdateProfileDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(30)
-  @Max(300)
+  @Min(30, { message: 'Peso deve estar entre 30 e 300 kg' })
+  @Max(300, { message: 'Peso deve estar entre 30 e 300 kg' })
   targetWeightKg?: number;
 
   @IsOptional()

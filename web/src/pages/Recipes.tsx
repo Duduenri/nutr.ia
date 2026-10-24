@@ -19,6 +19,7 @@ import {
 } from "../lib/api";
 import { today } from "../lib/date";
 import { useInvalidateDay } from "../lib/hooks";
+import { RecipeEditor } from "../components/RecipeEditor";
 
 const MEAL_GRADIENT: Record<MealType, string> = {
   BREAKFAST: "from-[#ffe7a8] to-[#f6c79a]",
@@ -37,7 +38,8 @@ const MEAL_FILTERS: { value: MealType | "ANY"; label: string }[] = [
 
 export function RecipesPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"all" | "fav">("all");
+  const [tab, setTab] = useState<"all" | "fav" | "mine">("all");
+  const [editing, setEditing] = useState<Recipe | "new" | null>(null);
   const [meal, setMeal] = useState<MealType | "ANY">("ANY");
   const [request, setRequest] = useState("");
   const [open, setOpen] = useState<Recipe | null>(null);
@@ -63,7 +65,12 @@ export function RecipesPage() {
     },
   });
 
-  const shown = tab === "fav" ? recipes.filter((r) => r.favorite) : recipes;
+  const shown =
+    tab === "fav"
+      ? recipes.filter((r) => r.favorite)
+      : tab === "mine"
+        ? recipes.filter((r) => r.custom)
+        : recipes;
 
   return (
     <div>
@@ -106,12 +113,23 @@ export function RecipesPage() {
       </header>
 
       <div className="space-y-4 px-4 pt-4">
+        <Button
+          variant="soft"
+          className="w-full"
+          onClick={() => setEditing("new")}
+        >
+          ＋ Adicionar minha receita
+        </Button>
         <Segmented
           options={[
             { value: "all", label: `Todas (${recipes.length})` },
             {
               value: "fav",
               label: `Favoritas (${recipes.filter((r) => r.favorite).length})`,
+            },
+            {
+              value: "mine",
+              label: `Minhas (${recipes.filter((r) => r.custom).length})`,
             },
           ]}
           value={tab}
@@ -126,7 +144,9 @@ export function RecipesPage() {
           <p className="py-8 text-center text-ink/60">
             {tab === "fav"
               ? "Toque no ❤️ de uma receita pra guardar aqui."
-              : "Toque em “Recomendar receitas” e a IA cria opções pensadas pra você."}
+              : tab === "mine"
+                ? "Suas receitas aparecem aqui. Toque em “Adicionar minha receita”."
+                : "Toque em “Recomendar receitas” e a IA cria opções pensadas pra você."}
           </p>
         )}
         <div className="grid grid-cols-2 gap-3 pb-4">
@@ -138,6 +158,20 @@ export function RecipesPage() {
       <RecipeSheet
         recipe={open ? (recipes.find((r) => r.id === open.id) ?? open) : null}
         onClose={() => setOpen(null)}
+        onEdit={(r) => {
+          setOpen(null);
+          setEditing(r);
+        }}
+      />
+      <RecipeEditor
+        open={editing !== null}
+        recipe={editing === "new" ? null : editing}
+        onClose={() => setEditing(null)}
+        onSaved={(r) => {
+          setEditing(null);
+          setTab("mine");
+          setOpen(r);
+        }}
       />
     </div>
   );
@@ -162,6 +196,11 @@ function RecipeCard({
         {recipe.favorite && (
           <span className="absolute right-2 top-2 text-lg">❤️</span>
         )}
+        {recipe.custom && (
+          <span className="absolute bottom-2 left-2 rounded-full bg-ink/80 px-2 py-0.5 text-[10px] font-bold text-white">
+            minha
+          </span>
+        )}
         <span className="absolute left-2 top-2 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold">
           {MEAL_LABEL[recipe.meal]}
         </span>
@@ -182,7 +221,9 @@ function RecipeCard({
 function RecipeSheet({
   recipe,
   onClose,
+  onEdit,
 }: {
+  onEdit: (r: Recipe) => void;
   recipe: Recipe | null;
   onClose: () => void;
 }) {
@@ -352,6 +393,13 @@ function RecipeSheet({
                 : "Registrar no diário de hoje"}
             </Button>
           </section>
+          <Button
+            variant="soft"
+            className="w-full"
+            onClick={() => onEdit(recipe)}
+          >
+            ✏️ Editar receita
+          </Button>
           <Button
             variant="ghost"
             className="w-full text-sm"

@@ -264,6 +264,7 @@ model Recipe {
   steps       Json
   tip         String?
   favorite    Boolean  @default(false)
+  custom      Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   @@index([userId, createdAt])

@@ -3,15 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { MealType, Recipe } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -21,6 +26,8 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { AiService } from '../ai/ai.service';
 import { AuthGuard, UserId } from '../auth/auth.guard';
@@ -42,6 +49,90 @@ class GenerateDto {
   request?: string;
 }
 
+class ParseDto {
+  @IsString()
+  @MinLength(5)
+  @MaxLength(6000)
+  text!: string;
+}
+
+class IngredientDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  item!: string;
+
+  @IsString()
+  @MaxLength(100)
+  quantity!: string;
+}
+
+class RecipeDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(150)
+  title!: string;
+
+  @IsString()
+  @MaxLength(16)
+  emoji!: string;
+
+  @IsEnum(MealType)
+  meal!: MealType;
+
+  @IsNumber()
+  @Min(0)
+  @Max(1440)
+  prepMinutes!: number;
+
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  servings!: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  servingG!: number;
+
+  @IsNumber()
+  @Min(0)
+  kcal!: number;
+
+  @IsNumber()
+  @Min(0)
+  protein!: number;
+
+  @IsNumber()
+  @Min(0)
+  carbs!: number;
+
+  @IsNumber()
+  @Min(0)
+  fat!: number;
+
+  @IsNumber()
+  @Min(0)
+  fiber!: number;
+
+  @IsArray()
+  @ArrayMaxSize(60)
+  @ValidateNested({ each: true })
+  @Type(() => IngredientDto)
+  ingredients!: IngredientDto[];
+
+  @IsArray()
+  @ArrayMaxSize(60)
+  @IsString({ each: true })
+  @MaxLength(1000, { each: true })
+  steps!: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  tip?: string;
+}
+
 class FavoriteDto {
   @IsBoolean()
   favorite!: boolean;
@@ -60,6 +151,10 @@ class LogDto {
   servings!: number;
 }
 
+function plainIngredients(list: IngredientDto[]) {
+  return list.map((i) => ({ item: i.item, quantity: i.quantity }));
+}
+
 function serialize(r: Recipe) {
   return {
     ...r,
@@ -76,6 +171,60 @@ export class RecipesController {
     private readonly ai: AiService,
     private readonly userContext: UserContextService,
   ) {}
+
+  @Post('parse')
+  @HttpCode(200)
+  async parse(@Body() dto: ParseDto) {
+    const r = await this.ai.parseRecipe(dto.text);
+    return {
+      title: r.title,
+      emoji: r.emoji,
+      meal: r.meal,
+      prepMinutes: Math.round(r.prepMinutes),
+      servings: Math.max(1, Math.round(r.servings)),
+      servingG: Math.round(r.servingG),
+      kcal: Math.round(r.perServing.kcal),
+      protein: Math.round(r.perServing.protein),
+      carbs: Math.round(r.perServing.carbs),
+      fat: Math.round(r.perServing.fat),
+      fiber: Math.round(r.perServing.fiber),
+      ingredients: r.ingredients,
+      steps: r.steps,
+      tip: r.tip,
+    };
+  }
+
+  @Post()
+  async create(@UserId() userId: string, @Body() dto: RecipeDto) {
+    const recipe = await this.prisma.recipe.create({
+      data: {
+        ...dto,
+        ingredients: plainIngredients(dto.ingredients),
+        userId,
+        custom: true,
+        favorite: true,
+      },
+    });
+    return serialize(recipe);
+  }
+
+  @Put(':id')
+  async replace(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: RecipeDto,
+  ) {
+    await this.own(userId, id);
+    const recipe = await this.prisma.recipe.update({
+      where: { id },
+      data: {
+        ...dto,
+        ingredients: plainIngredients(dto.ingredients),
+        tip: dto.tip ?? null,
+      },
+    });
+    return serialize(recipe);
+  }
 
   @Get()
   async list(@UserId() userId: string, @Query('favorites') favorites?: string) {

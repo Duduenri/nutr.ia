@@ -3,14 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsIn,
+  IsOptional,
+  ValidateNested,
   IsString,
   MaxLength,
   MinLength,
@@ -45,9 +51,38 @@ const PLAN_PROMPTS = {
 
 type PlanKind = keyof typeof PLAN_PROMPTS;
 
-class PlanDto {
+class QuestionsDto {
   @IsIn(Object.keys(PLAN_PROMPTS))
   kind!: PlanKind;
+
+  @IsDateString()
+  today!: string;
+}
+
+class AnswerDto {
+  @IsString()
+  @MaxLength(300)
+  question!: string;
+
+  @IsString()
+  @MaxLength(1000)
+  answer!: string;
+}
+
+class PlanDto extends QuestionsDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => AnswerDto)
+  answers?: AnswerDto[];
+}
+
+class ReviseDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(1000)
+  request!: string;
 
   @IsDateString()
   today!: string;
@@ -116,13 +151,45 @@ export class CoachController {
   @Post('plans')
   async createPlan(@UserId() userId: string, @Body() dto: PlanDto) {
     const spec = PLAN_PROMPTS[dto.kind];
+    const answers = (dto.answers ?? []).filter((a) => a.answer.trim());
+    const prompt = answers.length
+      ? `${spec.prompt}\n\nMinhas respostas para personalizar (use prioritariamente o que eu tenho em casa):\n${answers.map((a) => `- ${a.question} ${a.answer}`).join('\n')}`
+      : spec.prompt;
     const content = await this.ai.chat(
       await this.userContext.build(userId, dto.today),
-      [{ role: 'user', content: spec.prompt }],
+      [{ role: 'user', content: prompt }],
     );
     return this.prisma.plan.create({
       data: { userId, kind: dto.kind, title: spec.title, content },
     });
+  }
+
+  @Post('plans/questions')
+  @HttpCode(200)
+  async questions(@UserId() userId: string, @Body() dto: QuestionsDto) {
+    return this.ai.planQuestions(
+      await this.userContext.build(userId, dto.today),
+      dto.kind,
+    );
+  }
+
+  @Post('plans/:id/revise')
+  @HttpCode(200)
+  async revisePlan(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: ReviseDto,
+  ) {
+    const plan = await this.prisma.plan.findFirst({ where: { id, userId } });
+    if (!plan) {
+      throw new NotFoundException();
+    }
+    const content = await this.ai.revisePlan(
+      await this.userContext.build(userId, dto.today),
+      plan.content,
+      dto.request,
+    );
+    return this.prisma.plan.update({ where: { id }, data: { content } });
   }
 
   @Delete('plans/:id')
