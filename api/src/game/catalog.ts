@@ -154,6 +154,7 @@ export interface AchievementStats {
   kcalDays: number;
   customRecipes: number;
   activities: number;
+  friends: number;
 }
 
 export interface Achievement {
@@ -285,6 +286,14 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: '🏃‍♀️',
     gems: 100,
     check: (s) => s.activities >= 5,
+  },
+  {
+    key: 'friend_1',
+    title: 'Primeira amizade',
+    description: 'Adicionou uma amiga no app',
+    emoji: '👯‍♀️',
+    gems: 50,
+    check: (s) => s.friends >= 1,
   },
   {
     key: 'recipe_mine',

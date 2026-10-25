@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ProfileForm } from "../components/ProfileForm";
 import { Button, Card, fmt } from "../components/ui";
 import type { Profile } from "../lib/api";
+import { homeAfterLogin } from "../lib/pendingFriend";
 
 export function Onboarding({
   profile,
@@ -41,7 +42,7 @@ export function Onboarding({
           className="w-full"
           onClick={() => {
             onFinish();
-            navigate("/", { replace: true });
+            navigate(homeAfterLogin(), { replace: true });
           }}
         >
           Começar

@@ -11,6 +11,8 @@ import { DiaryController } from './diary/diary.controller';
 import { DiaryService } from './diary/diary.service';
 import { FastingController } from './fasting/fasting.controller';
 import { FoodsController } from './foods/foods.controller';
+import { FriendsController } from './friends/friends.controller';
+import { FriendsService } from './friends/friends.service';
 import { GameController } from './game/game.controller';
 import { GameService } from './game/game.service';
 import { IntegrationsController } from './integrations/integrations.controller';
@@ -47,6 +49,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     RecipesController,
     GameController,
     SupplementsController,
+    FriendsController,
   ],
   providers: [
     AuthGuard,
@@ -55,6 +58,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     DiaryService,
     UserContextService,
     GameService,
+    FriendsService,
   ],
 })
 export class AppModule {}

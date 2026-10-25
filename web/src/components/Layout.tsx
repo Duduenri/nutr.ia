@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AchievementPopup } from "./AchievementPopup";
 
-const PET_ROUTES = ["/bichinho", "/missoes", "/conquistas"];
+const PET_ROUTES = ["/bichinho", "/missoes", "/conquistas", "/amigos"];
 
 const TABS = [
   { to: "/", label: "Diário", icon: DiaryIcon },

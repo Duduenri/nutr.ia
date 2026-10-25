@@ -161,6 +161,24 @@ export function PetHomePage() {
           <span className="text-2xl text-ink/30">›</span>
         </Link>
         <Link
+          to="/amigos"
+          className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-card"
+        >
+          <span className="text-3xl">👯‍♀️</span>
+          <span className="flex-1">
+            <span className="block font-extrabold">Amigos</span>
+            <span className="text-sm text-ink/60">
+              Ranking da semana e mandar força
+            </span>
+          </span>
+          {game.friendsBadge > 0 && (
+            <span className="rounded-full bg-peach-500 px-2.5 py-1 text-xs font-extrabold text-white">
+              {game.friendsBadge}
+            </span>
+          )}
+          <span className="text-2xl text-ink/30">›</span>
+        </Link>
+        <Link
           to="/conquistas"
           className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-card"
         >

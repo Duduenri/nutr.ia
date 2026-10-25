@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { Spinner } from "./components/ui";
 import { ApiError } from "./lib/api";
 import { useProfile } from "./lib/hooks";
+import { savePendingFriend } from "./lib/pendingFriend";
 import { AuthPage } from "./pages/Auth";
 import { DiaryPage } from "./pages/Diary";
 import { FastingPage } from "./pages/Fasting";
@@ -28,6 +29,9 @@ const WardrobePage = lazy(() =>
 );
 const AchievementsPage = lazy(() =>
   import("./pages/Achievements").then((m) => ({ default: m.AchievementsPage })),
+);
+const FriendsPage = lazy(() =>
+  import("./pages/Friends").then((m) => ({ default: m.FriendsPage })),
 );
 const ProfilePage = lazy(() =>
   import("./pages/Profile").then((m) => ({ default: m.ProfilePage })),
@@ -54,6 +58,8 @@ export default function App() {
   }
 
   if (!profile) {
+    const add = new URLSearchParams(location.search).get("add");
+    if (location.pathname === "/amigos" && add) savePendingFriend(add);
     if (error && !(error instanceof ApiError && error.status === 401)) {
       return (
         <div className="grid min-h-dvh place-items-center p-6 text-center">
@@ -100,6 +106,7 @@ export default function App() {
           <Route path="/missoes" element={<MissionsPage />} />
           <Route path="/bichinho" element={<PetHomePage />} />
           <Route path="/conquistas" element={<AchievementsPage />} />
+          <Route path="/amigos" element={<FriendsPage />} />
           <Route path="/perfil" element={<ProfilePage profile={profile} />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

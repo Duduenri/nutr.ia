@@ -380,6 +380,7 @@ export interface GameState {
   lifetimeGems: number;
   owned: string[];
   equipped: string[];
+  friendsBadge: number;
   newAchievements: AchievementInfo[];
 }
 
@@ -410,4 +411,31 @@ export interface Supplement {
   kcal: number | null;
   timesPerDay: number;
   logs: { id: string; takenAt: string }[];
+}
+
+export interface RankEntry {
+  userId: string;
+  name: string;
+  petName: string | null;
+  petLevel: number;
+  petEquipped: string[];
+  achievements: number;
+  streak: number;
+  daysLogged: number;
+  waterDays: number;
+  missions: number;
+  fasts: number;
+  points: number;
+  weightLostPct: number | null;
+  position: number;
+  isMe: boolean;
+}
+
+export interface FriendsOverview {
+  code: string;
+  shareWeight: boolean;
+  ranking: RankEntry[];
+  incoming: { id: string; name: string; petName: string | null }[];
+  outgoing: { id: string; name: string }[];
+  cheers: { id: string; fromName: string; emoji: string; createdAt: string }[];
 }

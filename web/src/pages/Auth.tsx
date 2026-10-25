@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, ErrorText, Field, inputClass } from "../components/ui";
 import { api } from "../lib/api";
+import { homeAfterLogin } from "../lib/pendingFriend";
 
 export function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -25,7 +26,7 @@ export function AuthPage() {
         : api.post("/auth/register", form),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["profile"] });
-      navigate("/", { replace: true });
+      navigate(homeAfterLogin(), { replace: true });
     },
   });
 

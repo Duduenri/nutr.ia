@@ -73,6 +73,8 @@ model User {
   petName        String?
   bariatric      Boolean        @default(false)
   surgeryDate    DateTime?      @db.Date
+  friendCode     String?        @unique
+  shareWeight    Boolean        @default(false)
   kcalTarget     Int?
   proteinTarget  Int?
   carbsTarget    Int?
@@ -83,23 +85,27 @@ model User {
   stepsToken     String         @unique @default(cuid())
   createdAt      DateTime       @default(now())
 
-  entries        MealEntry[]
-  waterLogs      WaterLog[]
-  weightLogs     WeightLog[]
-  activities     Activity[]
-  steps          DailySteps[]
-  notes          Note[]
-  messages       ChatMessage[]
-  plans          Plan[]
-  photos         Photo[]
-  foods          Food[]
-  fasts          Fast[]
-  recipes        Recipe[]
-  gemTxs         GemTx[]
-  achievements   UserAchievement[]
-  items          UserItem[]
-  supplements    Supplement[]
-  supplementLogs SupplementLog[]
+  entries             MealEntry[]
+  waterLogs           WaterLog[]
+  weightLogs          WeightLog[]
+  activities          Activity[]
+  steps               DailySteps[]
+  notes               Note[]
+  messages            ChatMessage[]
+  plans               Plan[]
+  photos              Photo[]
+  foods               Food[]
+  fasts               Fast[]
+  recipes             Recipe[]
+  gemTxs              GemTx[]
+  achievements        UserAchievement[]
+  items               UserItem[]
+  supplements         Supplement[]
+  supplementLogs      SupplementLog[]
+  sentFriendships     Friendship[]      @relation("requester")
+  receivedFriendships Friendship[]      @relation("addressee")
+  sentCheers          Cheer[]           @relation("cheerFrom")
+  receivedCheers      Cheer[]           @relation("cheerTo")
 }
 
 model Food {
@@ -339,4 +345,36 @@ model SupplementLog {
   mealEntryId  String?
 
   @@index([userId, date])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  requester   User             @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String
+  addressee   User             @relation("addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
+}
+
+model Cheer {
+  id        String   @id @default(cuid())
+  fromId    String
+  from      User     @relation("cheerFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        User     @relation("cheerTo", fields: [toId], references: [id], onDelete: Cascade)
+  emoji     String
+  seen      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([toId, seen])
+  @@index([fromId, createdAt])
 }
