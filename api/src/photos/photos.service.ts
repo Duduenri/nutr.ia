@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { mkdir, unlink, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import sharp from 'sharp';
 import { requireEnv } from '../common/env';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PhotosService {
-  private readonly dir = requireEnv('UPLOAD_DIR');
+  private readonly dir = resolve(requireEnv('UPLOAD_DIR'));
 
   constructor(private readonly prisma: PrismaService) {}
 

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { mkdir, unlink, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import sharp from 'sharp';
 import { getDocumentProxy, extractText } from 'unpdf';
 import { AiService, LabExtraction } from '../ai/ai.service';
@@ -33,7 +33,7 @@ export async function pdfText(buffer: Buffer): Promise<string> {
 
 @Injectable()
 export class ExamsService {
-  private readonly dir = requireEnv('UPLOAD_DIR');
+  private readonly dir = resolve(requireEnv('UPLOAD_DIR'));
 
   constructor(
     private readonly prisma: PrismaService,

@@ -11,6 +11,7 @@ import {
 } from "../components/ui";
 import { api, type ChatMessage, type Plan } from "../lib/api";
 import { today } from "../lib/date";
+import { shrinkImage } from "../lib/image";
 
 const SUGGESTIONS = [
   "O que posso comer no jantar pra bater minha proteína?",
@@ -47,6 +48,7 @@ export function CoachPage() {
 function Chat() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ["chat"],
@@ -54,19 +56,39 @@ function Chat() {
   });
 
   const send = useMutation({
-    mutationFn: (content: string) =>
-      api.post<ChatMessage>("/coach/messages", { content, today: today() }),
-    onMutate: (content) => {
+    mutationFn: ({
+      content,
+      photo,
+    }: {
+      content: string;
+      photo?: { blob: Blob; url: string } | null;
+    }) => {
+      if (!photo) {
+        return api.post<ChatMessage>("/coach/messages", {
+          content,
+          today: today(),
+        });
+      }
+      const form = new FormData();
+      form.append("content", content);
+      form.append("today", today());
+      form.append("photo", photo.blob, "foto.jpg");
+      return api.post<ChatMessage>("/coach/messages", form);
+    },
+    onMutate: ({ content, photo }) => {
       qc.setQueryData<ChatMessage[]>(["chat"], (old = []) => [
         ...old,
         {
           id: `tmp-${Date.now()}`,
           role: "USER",
           content,
+          photoId: null,
+          previewUrl: photo?.url,
           createdAt: new Date().toISOString(),
         },
       ]);
       setText("");
+      setPhoto(null);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["chat"] }),
   });
@@ -81,7 +103,13 @@ function Chat() {
   }, [messages.length, send.isPending]);
 
   const submit = (content: string) => {
-    if (content.trim() && !send.isPending) send.mutate(content.trim());
+    if ((content.trim() || photo) && !send.isPending) {
+      send.mutate({ content: content.trim(), photo });
+    }
+  };
+  const pickPhoto = async (file: File) => {
+    const blob = await shrinkImage(file);
+    setPhoto({ blob, url: URL.createObjectURL(blob) });
   };
 
   return (
@@ -97,7 +125,8 @@ function Chat() {
             <p className="rounded-3xl bg-white p-4 shadow-card">
               Oi! Sou sua coach de nutrição 💚 Eu vejo o que você registrou no
               diário e te ajudo com dúvidas, ideias de refeição e motivação.
-              Pergunta qualquer coisa!
+              Pergunta qualquer coisa! Se quiser, manda 📷 foto do que vai comer
+              que eu te digo o que acho.
             </p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
@@ -124,8 +153,17 @@ function Chat() {
                   : "prose-chat rounded-bl-md bg-white shadow-card"
               }`}
             >
+              {(m.photoId || m.previewUrl) && (
+                <img
+                  src={
+                    m.photoId ? `/api/photos/${m.photoId}/file` : m.previewUrl
+                  }
+                  alt="Foto enviada"
+                  className="-mx-2 mb-1 mt-1 max-h-72 w-[calc(100%+1rem)] rounded-2xl object-cover"
+                />
+              )}
               {m.role === "USER" ? (
-                <p className="whitespace-pre-wrap">{m.content}</p>
+                m.content && <p className="whitespace-pre-wrap">{m.content}</p>
               ) : (
                 <Markdown>{m.content}</Markdown>
               )}
@@ -154,27 +192,63 @@ function Chat() {
         )}
         <div ref={bottomRef} />
       </div>
-      <form
-        className="sticky bottom-24 mt-3 flex gap-2 rounded-full bg-white p-1.5 shadow-card"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(text);
-        }}
-      >
-        <input
-          className="min-w-0 flex-1 bg-transparent px-4 outline-none"
-          placeholder="Pergunte à coach..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <button
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-white disabled:bg-ink/40"
-          disabled={!text.trim() || send.isPending}
-          aria-label="Enviar"
+      <div className="sticky bottom-24 mt-3">
+        {photo && (
+          <div className="relative mb-2 ml-2 inline-block rounded-3xl bg-white p-1.5 shadow-card">
+            <img
+              src={photo.url}
+              alt="Foto escolhida"
+              className="h-24 w-24 rounded-2xl object-cover"
+            />
+            <button
+              onClick={() => setPhoto(null)}
+              className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-ink text-sm text-white"
+              aria-label="Remover foto"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        <form
+          className="flex gap-2 rounded-full bg-white p-1.5 shadow-card"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit(text);
+          }}
         >
-          ➤
-        </button>
-      </form>
+          <label
+            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full bg-soft text-xl"
+            aria-label="Mandar foto"
+          >
+            📷
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void pickPhoto(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <input
+            className="min-w-0 flex-1 bg-transparent px-2 outline-none"
+            placeholder={
+              photo ? "O que quer saber dessa foto?" : "Pergunte à coach..."
+            }
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-white disabled:bg-ink/40"
+            disabled={(!text.trim() && !photo) || send.isPending}
+            aria-label="Enviar"
+          >
+            ➤
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -152,7 +152,8 @@ model Photo {
   path      String
   createdAt DateTime @default(now())
 
-  entries MealEntry[]
+  entries      MealEntry[]
+  chatMessages ChatMessage[]
 
   @@index([userId, createdAt])
 }
@@ -242,6 +243,8 @@ model ChatMessage {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role      ChatRole
   content   String
+  photoId   String?
+  photo     Photo?   @relation(fields: [photoId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])

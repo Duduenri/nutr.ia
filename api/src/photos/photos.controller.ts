@@ -24,7 +24,7 @@ export class PhotosController {
   @Get()
   async list(@UserId() userId: string, @Query('cursor') cursor?: string) {
     const photos = await this.prisma.photo.findMany({
-      where: { userId, path: { not: '' } },
+      where: { userId, path: { not: '' }, chatMessages: { none: {} } },
       orderBy: { createdAt: 'desc' },
       take: 30,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

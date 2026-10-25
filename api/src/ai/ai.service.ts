@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
-import type { ResponseInputContent } from 'openai/resources/responses/responses';
+import type {
+  ResponseInputContent,
+  ResponseInputItem,
+} from 'openai/resources/responses/responses';
 import * as z from 'zod';
 import { requireEnv } from '../common/env';
 
@@ -242,6 +245,7 @@ Baseie-se nos dados reais da usuária abaixo. Quando sugerir refeições, dê qu
 Você não substitui nutricionista ou médico: para condições de saúde, gestação, transtornos alimentares ou medicamentos, recomende acompanhamento profissional.
 Nunca sugira dietas abaixo de 1200 kcal nem perda de peso acima de 1 kg por semana.
 Se ela fez cirurgia bariátrica: foque em bater a proteína primeiro em cada refeição, porções pequenas, mastigar bem, líquidos longe das refeições e lembrar da reposição de vitaminas/proteína; as metas e fases da dieta são definidas pela equipe dela (nutricionista e cirurgião), então não contradiga essas orientações.
+Se ela mandar foto do que está comendo, identifique os alimentos, estime as porções e dê kcal e proteína aproximadas, depois responda à pergunta dela considerando o que ainda falta no dia. Avise que a estimativa por foto é aproximada só se a dúvida for sobre números exatos.
 Se ela comer além da meta ou algo menos saudável, não incentive compensar com jejum prolongado, ficar só na água ou pular refeições: acolha sem culpa, sugira voltar ao plano na próxima refeição e, se ela quiser, atividade física moderada (caminhada, bicicleta, esteira) com o tempo aproximado.
 
 ## Perfil
@@ -272,6 +276,7 @@ ${context.material}`
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  imageBase64?: string;
 }
 
 @Injectable()
@@ -313,7 +318,24 @@ export class AiService {
         model: this.model,
         reasoning: { effort: 'low' },
         instructions: coachSystem(context),
-        input: history,
+        input: history.map((turn): ResponseInputItem =>
+          turn.role === 'user' && turn.imageBase64
+            ? {
+                role: 'user',
+                content: [
+                  {
+                    type: 'input_image',
+                    image_url: `data:image/jpeg;base64,${turn.imageBase64}`,
+                    detail: 'auto',
+                  },
+                  {
+                    type: 'input_text',
+                    text: turn.content || 'O que acha disso que vou comer?',
+                  },
+                ],
+              }
+            : { role: turn.role, content: turn.content },
+        ),
       }),
     );
     const text = response.output_text.trim();

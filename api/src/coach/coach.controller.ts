@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,8 +8,11 @@ import {
   NotFoundException,
   Param,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -23,14 +27,15 @@ import {
 } from 'class-validator';
 import { AiService, type ChatTurn } from '../ai/ai.service';
 import { AuthGuard, UserId } from '../auth/auth.guard';
+import { PhotosService } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserContextService } from './user-context.service';
 
 class MessageDto {
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(4000)
-  content!: string;
+  content?: string;
 
   @IsDateString()
   today!: string;
@@ -95,6 +100,7 @@ export class CoachController {
     private readonly prisma: PrismaService,
     private readonly ai: AiService,
     private readonly userContext: UserContextService,
+    private readonly photos: PhotosService,
   ) {}
 
   @Get('messages')
@@ -108,9 +114,24 @@ export class CoachController {
   }
 
   @Post('messages')
-  async send(@UserId() userId: string, @Body() dto: MessageDto) {
-    await this.prisma.chatMessage.create({
-      data: { userId, role: 'USER', content: dto.content },
+  @UseInterceptors(
+    FileInterceptor('photo', { limits: { fileSize: 20 * 1024 * 1024 } }),
+  )
+  async send(
+    @UserId() userId: string,
+    @Body() dto: MessageDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    const content = dto.content?.trim() ?? '';
+    if (file && !file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Envie uma foto');
+    }
+    if (!content && !file) {
+      throw new BadRequestException('Escreva uma mensagem ou mande uma foto');
+    }
+    const photo = file ? await this.photos.save(userId, file.buffer) : null;
+    const sent = await this.prisma.chatMessage.create({
+      data: { userId, role: 'USER', content, photoId: photo?.id },
     });
     const recent = await this.prisma.chatMessage.findMany({
       where: { userId },
@@ -119,7 +140,12 @@ export class CoachController {
     });
     const history: ChatTurn[] = recent.reverse().map((m) => ({
       role: m.role === 'USER' ? 'user' : 'assistant',
-      content: m.content,
+      content:
+        m.photoId && m.id !== sent.id
+          ? `[mandei uma foto] ${m.content}`.trim()
+          : m.content,
+      imageBase64:
+        m.id === sent.id ? photo?.jpeg.toString('base64') : undefined,
     }));
     while (history.length && history[0].role !== 'user') {
       history.shift();
@@ -135,7 +161,14 @@ export class CoachController {
 
   @Delete('messages')
   async clear(@UserId() userId: string) {
+    const withPhotos = await this.prisma.chatMessage.findMany({
+      where: { userId, photoId: { not: null } },
+      select: { photoId: true },
+    });
     await this.prisma.chatMessage.deleteMany({ where: { userId } });
+    for (const { photoId } of withPhotos) {
+      await this.photos.remove(userId, photoId!).catch(() => undefined);
+    }
     return { ok: true };
   }
 

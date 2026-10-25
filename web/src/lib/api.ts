@@ -212,6 +212,8 @@ export interface ChatMessage {
   id: string;
   role: "USER" | "ASSISTANT";
   content: string;
+  photoId: string | null;
+  previewUrl?: string;
   createdAt: string;
 }
 
