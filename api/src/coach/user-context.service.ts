@@ -17,21 +17,39 @@ export class UserContextService {
   async build(userId: string, todayRaw: string) {
     const today = parseDay(todayRaw.slice(0, 10));
     const weekAgo = addDays(today, -7);
-    const [user, todayEntries, weekEntries, water, weights, fast] =
-      await Promise.all([
-        this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-        this.prisma.mealEntry.findMany({ where: { userId, date: today } }),
-        this.prisma.mealEntry.findMany({
-          where: { userId, date: { gte: weekAgo, lt: today } },
-        }),
-        this.prisma.waterLog.findMany({ where: { userId, date: today } }),
-        this.prisma.weightLog.findMany({
-          where: { userId },
-          orderBy: { date: 'desc' },
-          take: 5,
-        }),
-        this.prisma.fast.findFirst({ where: { userId, endAt: null } }),
-      ]);
+    const [
+      user,
+      todayEntries,
+      weekEntries,
+      water,
+      weights,
+      fast,
+      labs,
+      documents,
+    ] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      this.prisma.mealEntry.findMany({ where: { userId, date: today } }),
+      this.prisma.mealEntry.findMany({
+        where: { userId, date: { gte: weekAgo, lt: today } },
+      }),
+      this.prisma.waterLog.findMany({ where: { userId, date: today } }),
+      this.prisma.weightLog.findMany({
+        where: { userId },
+        orderBy: { date: 'desc' },
+        take: 5,
+      }),
+      this.prisma.fast.findFirst({ where: { userId, endAt: null } }),
+      this.prisma.labResult.findMany({
+        where: { userId },
+        orderBy: { date: 'desc' },
+        take: 300,
+      }),
+      this.prisma.userDocument.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+      }),
+    ]);
 
     const profile = [
       `Nome: ${user.name}`,
@@ -78,6 +96,33 @@ export class UserContextService {
           .join('\n')
       : 'Sem registros nos últimos 7 dias.';
 
-    return { profile, today: todayText, history };
+    const latestByCode = new Map<string, (typeof labs)[number]>();
+    for (const l of labs) {
+      if (!latestByCode.has(l.code)) latestByCode.set(l.code, l);
+    }
+    const statusLabel: Record<string, string> = {
+      LOW: 'abaixo',
+      HIGH: 'acima',
+      NORMAL: 'normal',
+      UNKNOWN: 'sem faixa',
+    };
+    const exams = [...latestByCode.values()]
+      .map(
+        (l) =>
+          `${l.name}: ${l.value} ${l.unit} (${statusLabel[l.status] ?? l.status}${l.refText ? `; ref ${l.refText}` : ''}) em ${formatDay(l.date)}`,
+      )
+      .join('\n');
+    const material = documents
+      .map((d) => `### ${d.title}\n${d.content}`)
+      .join('\n\n')
+      .slice(0, 60_000);
+
+    return {
+      profile,
+      today: todayText,
+      history,
+      exams: exams || undefined,
+      material: material || undefined,
+    };
   }
 }

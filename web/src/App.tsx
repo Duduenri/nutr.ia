@@ -30,6 +30,9 @@ const WardrobePage = lazy(() =>
 const AchievementsPage = lazy(() =>
   import("./pages/Achievements").then((m) => ({ default: m.AchievementsPage })),
 );
+const BariPage = lazy(() =>
+  import("./pages/Bari").then((m) => ({ default: m.BariPage })),
+);
 const FriendsPage = lazy(() =>
   import("./pages/Friends").then((m) => ({ default: m.FriendsPage })),
 );
@@ -107,6 +110,7 @@ export default function App() {
           <Route path="/bichinho" element={<PetHomePage />} />
           <Route path="/conquistas" element={<AchievementsPage />} />
           <Route path="/amigos" element={<FriendsPage />} />
+          <Route path="/bari" element={<BariPage />} />
           <Route path="/perfil" element={<ProfilePage profile={profile} />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

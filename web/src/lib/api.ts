@@ -3,6 +3,7 @@ export type EntrySource =
   "PHOTO" | "TEXT" | "VOICE" | "BARCODE" | "SEARCH" | "MANUAL" | "RECIPE";
 export type Goal = "LOSE" | "MAINTAIN" | "GAIN";
 export type Sex = "FEMALE" | "MALE";
+export type SurgeryType = "BGA" | "SLEEVE" | "BYPASS" | "BPD_DS";
 export type ActivityLevel =
   "SEDENTARY" | "LIGHT" | "MODERATE" | "ACTIVE" | "VERY_ACTIVE";
 
@@ -24,6 +25,7 @@ export interface Profile {
   fastingPlan: string | null;
   bariatric: boolean;
   surgeryDate: string | null;
+  surgeryType: SurgeryType | null;
   goalPlan: GoalPlan | null;
   kcalTarget: number | null;
   proteinTarget: number | null;
@@ -439,3 +441,66 @@ export interface FriendsOverview {
   outgoing: { id: string; name: string }[];
   cheers: { id: string; fromName: string; emoji: string; createdAt: string }[];
 }
+
+export type LabStatus = "LOW" | "NORMAL" | "HIGH" | "UNKNOWN";
+
+export interface LabMarker {
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  refLow: number | null;
+  refHigh: number | null;
+  refText: string | null;
+  key: boolean;
+  latest: { date: string; value: number; status: LabStatus };
+  history: { date: string; value: number; status: LabStatus }[];
+}
+
+export interface LabOverview {
+  exams: {
+    id: string;
+    title: string;
+    collectedAt: string;
+    results: number;
+    hasFile: boolean;
+  }[];
+  markers: LabMarker[];
+}
+
+export interface BariGuide {
+  surgeryType: SurgeryType | null;
+  items: {
+    key: string;
+    name: string;
+    dose: string | null;
+    note: string | null;
+    labCodes: string[];
+  }[];
+}
+
+export interface BariMonth {
+  month: string;
+  days: {
+    date: string;
+    dosesTaken: number;
+    dosesExpected: number;
+    protein: number;
+    proteinTarget: number;
+    supplementsOk: boolean;
+    proteinOk: boolean;
+  }[];
+  summary: {
+    days: number;
+    supplementsOk: number;
+    proteinOk: number;
+    bothOk: number;
+  };
+}
+
+export const SURGERY_LABEL: Record<SurgeryType, string> = {
+  BGA: "Banda gástrica",
+  SLEEVE: "Sleeve",
+  BYPASS: "Bypass",
+  BPD_DS: "Duodenal switch",
+};

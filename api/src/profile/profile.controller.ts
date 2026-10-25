@@ -7,10 +7,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ActivityLevel, Goal, Sex, User } from '@prisma/client';
+import { ActivityLevel, Goal, Sex, SurgeryType, User } from '@prisma/client';
 import {
   IsBoolean,
   IsDateString,
+  IsIn,
   IsEnum,
   IsInt,
   IsNumber,
@@ -84,6 +85,10 @@ class UpdateProfileDto {
   @IsOptional()
   @IsDateString()
   surgeryDate?: string | null;
+
+  @IsOptional()
+  @IsIn(['BGA', 'SLEEVE', 'BYPASS', 'BPD_DS', null])
+  surgeryType?: SurgeryType | null;
 }
 
 class OverrideTargetsDto {

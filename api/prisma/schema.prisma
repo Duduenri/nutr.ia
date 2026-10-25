@@ -73,6 +73,7 @@ model User {
   petName        String?
   bariatric      Boolean        @default(false)
   surgeryDate    DateTime?      @db.Date
+  surgeryType    SurgeryType?
   friendCode     String?        @unique
   shareWeight    Boolean        @default(false)
   kcalTarget     Int?
@@ -106,6 +107,9 @@ model User {
   receivedFriendships Friendship[]      @relation("addressee")
   sentCheers          Cheer[]           @relation("cheerFrom")
   receivedCheers      Cheer[]           @relation("cheerTo")
+  labExams            LabExam[]
+  labResults          LabResult[]
+  documents           UserDocument[]
 }
 
 model Food {
@@ -377,4 +381,56 @@ model Cheer {
 
   @@index([toId, seen])
   @@index([fromId, createdAt])
+}
+
+enum SurgeryType {
+  BGA
+  SLEEVE
+  BYPASS
+  BPD_DS
+}
+
+model LabExam {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectedAt DateTime    @db.Date
+  title       String
+  filePath    String?
+  createdAt   DateTime    @default(now())
+  results     LabResult[]
+
+  @@index([userId, collectedAt])
+}
+
+model LabResult {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId   String?
+  exam     LabExam? @relation(fields: [examId], references: [id], onDelete: SetNull)
+  date     DateTime @db.Date
+  code     String
+  name     String
+  category String
+  value    Float
+  unit     String
+  refLow   Float?
+  refHigh  Float?
+  refText  String?
+  status   String
+
+  @@unique([userId, code, date])
+  @@index([userId, code])
+}
+
+model UserDocument {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

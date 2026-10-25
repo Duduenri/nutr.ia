@@ -68,6 +68,19 @@ export function DiaryPage() {
               <>
                 <ProteinCard diary={data} />
                 <SupplementsCard date={date} />
+                <Link
+                  to="/bari"
+                  className="flex items-center gap-3 rounded-3xl bg-gradient-to-r from-[#ece4fb] to-[#fde8d4] p-4 font-extrabold shadow-card"
+                >
+                  <span className="text-3xl">🧪</span>
+                  <span className="flex-1">
+                    Exames, metas do mês e guia bari
+                    <span className="block text-sm font-semibold text-ink/60">
+                      Envie seus exames e acompanhe a reposição
+                    </span>
+                  </span>
+                  <span className="text-2xl text-ink/30">›</span>
+                </Link>
               </>
             )}
             <Meals diary={data} date={date} />

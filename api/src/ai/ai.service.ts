@@ -121,10 +121,76 @@ const PlanQuestionsSchema = z.object({
 
 export type PlanQuestions = z.infer<typeof PlanQuestionsSchema>;
 
+export const LAB_CATEGORIES = [
+  'Vitaminas',
+  'Ferro e anemia',
+  'Minerais',
+  'Hemograma',
+  'Proteínas',
+  'Glicemia',
+  'Lipídios',
+  'Fígado',
+  'Rins',
+  'Tireoide',
+  'Hormônios',
+  'Outros',
+] as const;
+
+const LabExtractionSchema = z.object({
+  collectedAt: z.string().describe('Data da coleta no formato AAAA-MM-DD'),
+  results: z.array(
+    z.object({
+      code: z
+        .string()
+        .describe(
+          'Identificador em snake_case sem acento. Use exatamente estes quando aplicável: ferritina, ferro_serico, transferrina, saturacao_transferrina, hemoglobina, hematocrito, eritrocitos, vcm, hcm, chcm, rdw, leucocitos, neutrofilos, linfocitos, plaquetas, vitamina_b12, acido_folico, vitamina_d, vitamina_a, vitamina_b1, zinco, cobre, magnesio, calcio, calcio_ionico, fosforo, pth, albumina, proteinas_totais, glicose, hemoglobina_glicada, insulina, colesterol_total, hdl, ldl, triglicerides, tgo, tgp, ggt, fosfatase_alcalina, bilirrubina_total, ureia, creatinina, sodio, potassio, tsh, t4_livre',
+        ),
+      name: z
+        .string()
+        .describe('Nome amigável em português, ex.: "Vitamina D"'),
+      category: z.enum(LAB_CATEGORIES),
+      value: z.number(),
+      unit: z.string(),
+      refLow: z
+        .number()
+        .nullable()
+        .describe(
+          'Limite inferior da faixa de referência aplicável a esta pessoa',
+        ),
+      refHigh: z
+        .number()
+        .nullable()
+        .describe(
+          'Limite superior da faixa de referência aplicável a esta pessoa',
+        ),
+      refText: z
+        .string()
+        .describe('Faixa de referência como está no laudo, resumida'),
+      status: z.enum(['LOW', 'NORMAL', 'HIGH', 'UNKNOWN']),
+      history: z
+        .array(z.object({ date: z.string(), value: z.number() }))
+        .describe(
+          'Resultados anteriores listados no laudo (AAAA-MM-DD), sem incluir o atual',
+        ),
+    }),
+  ),
+});
+
+export type LabExtraction = z.infer<typeof LabExtractionSchema>;
+
+export interface LabContext {
+  age: number | null;
+  sex: string | null;
+  bariatric: boolean;
+  surgeryType: string | null;
+}
+
 export interface CoachContext {
   profile: string;
   today: string;
   history: string;
+  exams?: string;
+  material?: string;
 }
 
 function coachSystem(context: CoachContext): string {
@@ -143,7 +209,22 @@ ${context.profile}
 ${context.today}
 
 ## Últimos dias
-${context.history}`;
+${context.history}${
+    context.exams
+      ? `
+
+## Exames de sangue mais recentes
+${context.exams}
+Comente exames só quando for útil; valores fora da faixa devem ser levados à equipe dela, sem diagnosticar.`
+      : ''
+  }${
+    context.material
+      ? `
+
+## Material de referência da nutricionista dela (use como base, sem citar páginas)
+${context.material}`
+      : ''
+  }`;
 }
 
 export interface ChatTurn {
@@ -297,6 +378,58 @@ Se o texto não for uma receita, devolva o melhor que conseguir com o que foi en
         content: `Este é o meu plano atual:\n\n${plan}\n\nAjuste o plano assim: "${request}". Devolva o plano completo já ajustado, no mesmo formato, mantendo o que não precisa mudar.`,
       },
     ]);
+  }
+
+  async extractLabs(
+    input: { text: string } | { imageBase64: string },
+    ctx: LabContext,
+  ): Promise<LabExtraction> {
+    const who = [
+      ctx.age ? `${ctx.age} anos` : null,
+      ctx.sex === 'FEMALE'
+        ? 'sexo feminino'
+        : ctx.sex === 'MALE'
+          ? 'sexo masculino'
+          : null,
+      ctx.bariatric
+        ? `pós-cirurgia bariátrica${ctx.surgeryType ? ` (${ctx.surgeryType})` : ''} — considere grupo de risco quando o laudo tiver faixas diferentes por grupo`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    const instructions = `Você extrai resultados de exames laboratoriais brasileiros para um app pessoal de saúde.
+Inclua somente resultados numéricos (ignore textos como "ausente"/"negativo" e campos sem valor).
+Para hemograma com valor percentual e absoluto, use o absoluto (/µL) para leucócitos e suas frações.
+Escolha a faixa de referência que se aplica a esta pessoa: ${who || 'dados não informados'}.
+Se o laudo der várias faixas (por idade, sexo ou grupo de risco), preencha refLow/refHigh com a faixa aplicável; se não houver números, deixe null e defina status pela interpretação do laudo.
+Inclua o histórico de resultados anteriores quando o laudo trouxer.
+Nunca invente valores.`;
+    const content: ResponseInputContent[] =
+      'text' in input
+        ? [{ type: 'input_text', text: input.text }]
+        : [
+            {
+              type: 'input_image',
+              image_url: `data:image/jpeg;base64,${input.imageBase64}`,
+              detail: 'high',
+            },
+            { type: 'input_text', text: 'Extraia os resultados deste laudo.' },
+          ];
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions,
+        input: [{ role: 'user', content }],
+        text: { format: zodTextFormat(LabExtractionSchema, 'lab_results') },
+      }),
+    );
+    if (!response.output_parsed || !response.output_parsed.results.length) {
+      throw new UnprocessableEntityException(
+        'Não encontrei resultados de exame nesse arquivo.',
+      );
+    }
+    return response.output_parsed;
   }
 
   private async analyzeFood(

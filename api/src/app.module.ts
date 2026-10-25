@@ -9,6 +9,8 @@ import { UserContextService } from './coach/user-context.service';
 import { requireEnv } from './common/env';
 import { DiaryController } from './diary/diary.controller';
 import { DiaryService } from './diary/diary.service';
+import { ExamsController } from './exams/exams.controller';
+import { ExamsService } from './exams/exams.service';
 import { FastingController } from './fasting/fasting.controller';
 import { FoodsController } from './foods/foods.controller';
 import { FriendsController } from './friends/friends.controller';
@@ -50,6 +52,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     GameController,
     SupplementsController,
     FriendsController,
+    ExamsController,
   ],
   providers: [
     AuthGuard,
@@ -59,6 +62,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     UserContextService,
     GameService,
     FriendsService,
+    ExamsService,
   ],
 })
 export class AppModule {}
