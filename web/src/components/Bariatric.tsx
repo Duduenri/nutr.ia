@@ -22,6 +22,7 @@ import {
   Sheet,
   Spinner,
 } from "./ui";
+import { PrescriptionImportSheet, TimesEditor } from "./Reminders";
 
 export function ProteinCard({ diary }: { diary: Diary }) {
   const [lookup, setLookup] = useState(false);
@@ -318,6 +319,7 @@ export function SupplementsCard({ date }: { date: string }) {
   const qc = useQueryClient();
   const invalidate = useInvalidateDay();
   const [editing, setEditing] = useState<Supplement | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const { data = [], isLoading } = useQuery({
     queryKey: ["supplements", date],
     queryFn: () => api.get<Supplement[]>(`/supplements?date=${date}`),
@@ -346,18 +348,26 @@ export function SupplementsCard({ date }: { date: string }) {
     <Card>
       <div className="flex items-baseline justify-between">
         <h3 className="text-lg font-extrabold">💊 Reposição</h3>
-        <button
-          onClick={() => setEditing("new")}
-          className="text-sm font-bold text-mint-500"
-        >
-          + Adicionar
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setImporting(true)}
+            className="text-sm font-bold text-ink/60"
+          >
+            📄 Receita
+          </button>
+          <button
+            onClick={() => setEditing("new")}
+            className="text-sm font-bold text-mint-500"
+          >
+            + Adicionar
+          </button>
+        </div>
       </div>
       {isLoading && <Spinner />}
       {!isLoading && data.length === 0 && (
         <p className="mt-2 text-sm text-ink/60">
-          Cadastre os suplementos e vitaminas que seu nutricionista passou. Aí é
-          só tocar em “Tomei” e o horário fica registrado.
+          Cadastre os suplementos e vitaminas que seu nutricionista passou (ou
+          importe a receita em 📄). Com horário, eu te aviso na hora de tomar.
         </p>
       )}
       <ErrorText error={take.error ?? untake.error} />
@@ -386,6 +396,7 @@ export function SupplementsCard({ date }: { date: string }) {
                     {[
                       s.dose,
                       s.proteinG ? `${fmt(s.proteinG)} g proteína` : null,
+                      s.times.length ? `🔔 ${s.times.join(", ")}` : null,
                       `${s.logs.length}/${s.timesPerDay} hoje`,
                     ]
                       .filter(Boolean)
@@ -432,6 +443,11 @@ export function SupplementsCard({ date }: { date: string }) {
         onClose={() => setEditing(null)}
         onSaved={refresh}
       />
+      <PrescriptionImportSheet
+        open={importing}
+        onClose={() => setImporting(false)}
+        onSaved={refresh}
+      />
     </Card>
   );
 }
@@ -454,6 +470,7 @@ function SupplementSheet({
     proteinG: "",
     kcal: "",
     timesPerDay: "1",
+    times: [] as string[],
   };
   const [f, setF] = useState(empty);
   const [key, setKey] = useState<string | null>(null);
@@ -469,6 +486,7 @@ function SupplementSheet({
             proteinG: supplement.proteinG?.toString() ?? "",
             kcal: supplement.kcal?.toString() ?? "",
             timesPerDay: String(supplement.timesPerDay),
+            times: supplement.times,
           }
         : empty,
     );
@@ -487,6 +505,7 @@ function SupplementSheet({
         proteinG: num(f.proteinG),
         kcal: num(f.kcal),
         timesPerDay: Math.max(1, parseInt(f.timesPerDay, 10) || 1),
+        times: f.times,
       };
       return supplement
         ? api.patch(`/supplements/${supplement.id}`, body)
@@ -525,6 +544,7 @@ function SupplementSheet({
                     proteinG: p.proteinG?.toString() ?? "",
                     kcal: p.kcal?.toString() ?? "",
                     timesPerDay: "1",
+                    times: [],
                   })
                 }
                 className="rounded-full bg-soft px-3 py-1.5 text-sm font-bold"
@@ -546,14 +566,16 @@ function SupplementSheet({
               placeholder="1 cápsula"
             />
           </Field>
-          <Field label="Vezes por dia">
-            <input
-              className={inputClass}
-              inputMode="numeric"
-              value={f.timesPerDay}
-              onChange={set("timesPerDay")}
-            />
-          </Field>
+          {f.times.length === 0 && (
+            <Field label="Vezes por dia">
+              <input
+                className={inputClass}
+                inputMode="numeric"
+                value={f.timesPerDay}
+                onChange={set("timesPerDay")}
+              />
+            </Field>
+          )}
           <Field label="Proteína por dose (g)">
             <input
               className={inputClass}
@@ -571,6 +593,15 @@ function SupplementSheet({
               onChange={set("kcal")}
             />
           </Field>
+        </div>
+        <div>
+          <span className="mb-1 block text-sm font-semibold text-ink/70">
+            🔔 Horários do lembrete
+          </span>
+          <TimesEditor
+            times={f.times}
+            onChange={(times) => setF({ ...f, times })}
+          />
         </div>
         <p className="text-xs text-ink/50">
           Se tiver proteína, cada “Tomei” soma na proteína e nas calorias do

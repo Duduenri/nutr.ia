@@ -23,6 +23,9 @@ import { PhotosController } from './photos/photos.controller';
 import { PhotosService } from './photos/photos.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProfileController } from './profile/profile.controller';
+import { PushController } from './push/push.controller';
+import { PushService } from './push/push.service';
+import { RemindersService } from './push/reminders.service';
 import { RecipesController } from './recipes/recipes.controller';
 import { StatsController } from './stats/stats.controller';
 import { SupplementsController } from './supplements/supplements.controller';
@@ -53,6 +56,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     SupplementsController,
     FriendsController,
     ExamsController,
+    PushController,
   ],
   providers: [
     AuthGuard,
@@ -63,6 +67,8 @@ import { SupplementsController } from './supplements/supplements.controller';
     GameService,
     FriendsService,
     ExamsService,
+    PushService,
+    RemindersService,
   ],
 })
 export class AppModule {}

@@ -279,7 +279,7 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
-  del: <T>(path: string) => request<T>("DELETE", path),
+  del: <T>(path: string, body?: unknown) => request<T>("DELETE", path, body),
 };
 
 export const MEAL_LABEL: Record<MealType, string> = {
@@ -412,7 +412,26 @@ export interface Supplement {
   proteinG: number | null;
   kcal: number | null;
   timesPerDay: number;
+  times: string[];
   logs: { id: string; takenAt: string }[];
+}
+
+export interface PrescriptionItem {
+  name: string;
+  emoji: string;
+  dose: string;
+  times: string[];
+  proteinG: number | null;
+  kcal: number | null;
+  note: string;
+  daily: boolean;
+}
+
+export interface WaterReminder {
+  enabled: boolean;
+  start: string;
+  end: string;
+  every: number;
 }
 
 export interface RankEntry {

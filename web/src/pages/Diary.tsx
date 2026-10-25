@@ -33,6 +33,7 @@ import {
 } from "../lib/fasting";
 import { useFasting, useInvalidateDay, useProfile } from "../lib/hooks";
 import { ProteinCard, SupplementsCard } from "../components/Bariatric";
+import { WaterReminderSheet } from "../components/Reminders";
 
 export function DiaryPage() {
   const [params, setParams] = useSearchParams();
@@ -463,6 +464,7 @@ function Macro({
 
 function Water({ diary, date }: { diary: Diary; date: string }) {
   const invalidate = useInvalidateDay();
+  const [reminder, setReminder] = useState(false);
   const cup = diary.targets.cupSizeMl;
   const goal = diary.targets.waterMl ?? 2000;
   const filled = Math.floor(diary.water.ml / cup);
@@ -477,9 +479,18 @@ function Water({ diary, date }: { diary: Diary; date: string }) {
     <Card>
       <div className="flex items-baseline justify-between">
         <h3 className="text-lg font-extrabold">💧 Água</h3>
-        <span className="font-extrabold text-sky-600">
-          {fmt(diary.water.ml / 1000, 2)} L
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold text-sky-600">
+            {fmt(diary.water.ml / 1000, 2)} L
+          </span>
+          <button
+            onClick={() => setReminder(true)}
+            className="grid h-8 w-8 place-items-center rounded-full bg-soft"
+            aria-label="Lembrete de água"
+          >
+            🔔
+          </button>
+        </div>
       </div>
       <div className="mb-3 text-sm text-ink/60">
         Meta: {fmt(goal / 1000, 2)} L · copo de {cup} ml
@@ -507,6 +518,7 @@ function Water({ diary, date }: { diary: Diary; date: string }) {
           Meta de água batida! 🎉
         </p>
       )}
+      <WaterReminderSheet open={reminder} onClose={() => setReminder(false)} />
     </Card>
   );
 }

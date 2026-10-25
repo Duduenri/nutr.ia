@@ -185,6 +185,48 @@ export interface LabContext {
   surgeryType: string | null;
 }
 
+const PrescriptionSchema = z.object({
+  items: z.array(
+    z.object({
+      name: z
+        .string()
+        .describe('Nome curto, ex.: "Ferro quelato", "Vitamina D3"'),
+      emoji: z
+        .string()
+        .describe(
+          'Um emoji: 💊 cápsulas, 🥤 pós/shakes, ☀️ vitamina D, 🦴 cálcio, 🩸 ferro, 💉 injeção',
+        ),
+      dose: z
+        .string()
+        .describe(
+          'Dose por tomada, ex.: "1 cápsula", "2.000 UI", "1 scoop (30 g)"',
+        ),
+      times: z
+        .array(z.string())
+        .describe('Horários HH:MM, um por tomada diária'),
+      proteinG: z
+        .number()
+        .nullable()
+        .describe(
+          'Proteína por tomada em gramas, só para suplementos proteicos',
+        ),
+      kcal: z.number().nullable(),
+      note: z
+        .string()
+        .describe(
+          'Orientação curta da receita (ex.: "em jejum", "longe do cálcio"), ou vazio',
+        ),
+      daily: z
+        .boolean()
+        .describe(
+          'false se não for de uso diário (semanal, mensal, injetável)',
+        ),
+    }),
+  ),
+});
+
+export type Prescription = z.infer<typeof PrescriptionSchema>;
+
 export interface CoachContext {
   profile: string;
   today: string;
@@ -427,6 +469,46 @@ Nunca invente valores.`;
     if (!response.output_parsed || !response.output_parsed.results.length) {
       throw new UnprocessableEntityException(
         'Não encontrei resultados de exame nesse arquivo.',
+      );
+    }
+    return response.output_parsed;
+  }
+
+  async extractPrescription(
+    input: { text: string } | { imageBase64: string },
+  ): Promise<Prescription> {
+    const instructions = `Você lê receitas de suplementos e vitaminas (comuns após cirurgia bariátrica) para cadastrar lembretes.
+Liste cada item prescrito com dose por tomada e horários diários no formato HH:MM.
+Se a receita disser os horários, use exatamente. Se só disser a frequência, sugira horários práticos respeitando:
+ferro em jejum ou longe de leite/café/chá e pelo menos 2 h longe do cálcio; cálcio dividido em tomadas de até 500–600 mg;
+vitamina D e polivitamínico junto de uma refeição; B12 pela manhã.
+Polivitamínicos costumam ter cálcio: deixe pelo menos 2 h entre ele e o ferro. Se a receita der opção de frequência (ex.: 2x ou 3x), escolha a que permite respeitar essas distâncias.
+Antes de responder, confira se todos os horários sugeridos respeitam as distâncias acima.
+Itens não diários (semanais, mensais, injetáveis) entram com daily=false e times vazio.
+Nunca invente itens que não estejam na receita.`;
+    const content: ResponseInputContent[] =
+      'text' in input
+        ? [{ type: 'input_text', text: input.text }]
+        : [
+            {
+              type: 'input_image',
+              image_url: `data:image/jpeg;base64,${input.imageBase64}`,
+              detail: 'high',
+            },
+            { type: 'input_text', text: 'Leia esta receita.' },
+          ];
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions,
+        input: [{ role: 'user', content }],
+        text: { format: zodTextFormat(PrescriptionSchema, 'prescription') },
+      }),
+    );
+    if (!response.output_parsed?.items.length) {
+      throw new UnprocessableEntityException(
+        'Não encontrei suplementos nessa receita.',
       );
     }
     return response.output_parsed;

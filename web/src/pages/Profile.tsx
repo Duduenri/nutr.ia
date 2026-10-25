@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { ProfileForm } from "../components/ProfileForm";
+import { WaterReminderForm } from "../components/Reminders";
 import {
   Button,
   Card,
@@ -687,7 +688,7 @@ function SettingsSheet({
 }) {
   const qc = useQueryClient();
   const [section, setSection] = useState<
-    "menu" | "profile" | "targets" | "steps"
+    "menu" | "profile" | "targets" | "steps" | "reminders"
   >("menu");
   const close = () => {
     setSection("menu");
@@ -711,6 +712,7 @@ function SettingsSheet({
           profile: "Meus dados",
           targets: "Metas diárias",
           steps: "Passos do iPhone",
+          reminders: "Notificações",
         }[section]
       }
     >
@@ -721,6 +723,7 @@ function SettingsSheet({
               [
                 ["profile", "👤 Meus dados e objetivo"],
                 ["targets", "🎯 Ajustar metas e copo de água"],
+                ["reminders", "🔔 Notificações e lembrete de água"],
                 ["steps", "👟 Importar passos do iPhone"],
               ] as const
             ).map(([id, label]) => (
@@ -753,6 +756,7 @@ function SettingsSheet({
           <TargetsForm profile={profile} onDone={close} />
         )}
         {section === "steps" && <StepsHelp token={profile.stepsToken} />}
+        {section === "reminders" && <WaterReminderForm onDone={close} />}
       </div>
     </Sheet>
   );

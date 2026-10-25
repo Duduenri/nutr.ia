@@ -26,6 +26,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:?defina COOKIE_SECURE no .env}
       OPENAI_API_KEY: ${OPENAI_API_KEY:?defina OPENAI_API_KEY no .env}
       OPENAI_MODEL: ${OPENAI_MODEL:?defina OPENAI_MODEL no .env}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?defina VAPID_PUBLIC_KEY no .env}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?defina VAPID_PRIVATE_KEY no .env}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:?defina VAPID_SUBJECT no .env}
       UPLOAD_DIR: /data/uploads
       PORT: "3300"
     volumes:

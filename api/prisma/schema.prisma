@@ -57,34 +57,39 @@ enum ChatRole {
 }
 
 model User {
-  id             String         @id @default(cuid())
-  email          String         @unique
-  passwordHash   String
-  name           String
-  sex            Sex?
-  birthDate      DateTime?      @db.Date
-  heightCm       Float?
-  activityLevel  ActivityLevel?
-  goal           Goal?
-  startWeightKg  Float?
-  targetWeightKg Float?
-  targetDate     DateTime?      @db.Date
-  fastingPlan    String?
-  petName        String?
-  bariatric      Boolean        @default(false)
-  surgeryDate    DateTime?      @db.Date
-  surgeryType    SurgeryType?
-  friendCode     String?        @unique
-  shareWeight    Boolean        @default(false)
-  kcalTarget     Int?
-  proteinTarget  Int?
-  carbsTarget    Int?
-  fatTarget      Int?
-  fiberTarget    Int?
-  waterTargetMl  Int?
-  cupSizeMl      Int            @default(250)
-  stepsToken     String         @unique @default(cuid())
-  createdAt      DateTime       @default(now())
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String
+  name               String
+  sex                Sex?
+  birthDate          DateTime?      @db.Date
+  heightCm           Float?
+  activityLevel      ActivityLevel?
+  goal               Goal?
+  startWeightKg      Float?
+  targetWeightKg     Float?
+  targetDate         DateTime?      @db.Date
+  fastingPlan        String?
+  petName            String?
+  bariatric          Boolean        @default(false)
+  surgeryDate        DateTime?      @db.Date
+  surgeryType        SurgeryType?
+  timezone           String?
+  waterReminder      Boolean        @default(false)
+  waterReminderStart String         @default("08:00")
+  waterReminderEnd   String         @default("22:00")
+  waterReminderEvery Int            @default(120)
+  friendCode         String?        @unique
+  shareWeight        Boolean        @default(false)
+  kcalTarget         Int?
+  proteinTarget      Int?
+  carbsTarget        Int?
+  fatTarget          Int?
+  fiberTarget        Int?
+  waterTargetMl      Int?
+  cupSizeMl          Int            @default(250)
+  stepsToken         String         @unique @default(cuid())
+  createdAt          DateTime       @default(now())
 
   entries             MealEntry[]
   waterLogs           WaterLog[]
@@ -103,13 +108,15 @@ model User {
   items               UserItem[]
   supplements         Supplement[]
   supplementLogs      SupplementLog[]
-  sentFriendships     Friendship[]      @relation("requester")
-  receivedFriendships Friendship[]      @relation("addressee")
-  sentCheers          Cheer[]           @relation("cheerFrom")
-  receivedCheers      Cheer[]           @relation("cheerTo")
+  sentFriendships     Friendship[]       @relation("requester")
+  receivedFriendships Friendship[]       @relation("addressee")
+  sentCheers          Cheer[]            @relation("cheerFrom")
+  receivedCheers      Cheer[]            @relation("cheerTo")
   labExams            LabExam[]
   labResults          LabResult[]
   documents           UserDocument[]
+  pushSubscriptions   PushSubscription[]
+  reminderLogs        ReminderLog[]
 }
 
 model Food {
@@ -332,6 +339,7 @@ model Supplement {
   proteinG    Float?
   kcal        Float?
   timesPerDay Int             @default(1)
+  times       String[]        @default([])
   createdAt   DateTime        @default(now())
   logs        SupplementLog[]
 
@@ -433,4 +441,27 @@ model UserDocument {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ReminderLog {
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplementId String
+  date         DateTime @db.Date
+  time         String
+  sentAt       DateTime @default(now())
+
+  @@id([userId, supplementId, date, time])
 }
