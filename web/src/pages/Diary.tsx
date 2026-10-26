@@ -31,6 +31,12 @@ import {
 } from "../lib/exercise";
 import { dayLabel, shiftDay, today } from "../lib/date";
 import {
+  DISTANCE_SPORTS,
+  formatDuration as formatTrainingTime,
+  formatKm,
+  paceLabel,
+} from "../lib/training";
+import {
   formatDuration,
   formatHoursShort,
   phaseFor,
@@ -740,6 +746,7 @@ const ACTIVITY_PRESETS: {
 
 const EMPTY_ACTIVITY = {
   name: "",
+  distance: "",
   minutes: "30",
   intensity: "MODERATE" as Intensity,
   details: "",
@@ -779,11 +786,15 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     setExplain(null);
   };
 
+  const distanceKm = parseFloat(form.distance.replace(",", ".")) || 0;
+  const showDistance =
+    DISTANCE_SPORTS.includes(form.name) || (form.name.trim() !== "" && !preset);
   const payload = () => ({
     name: form.name.trim(),
     minutes: parseInt(form.minutes, 10),
     intensity: form.intensity,
     details: form.details.trim() || undefined,
+    distanceKm: showDistance && distanceKm > 0 ? distanceKm : undefined,
   });
   const estimate = useMutation({
     mutationFn: () =>
@@ -845,7 +856,9 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
                 </span>
                 <span className="text-sm text-ink/60">
                   {" "}
-                  · {a.minutes} min
+                  · {formatTrainingTime(a.minutes)}
+                  {a.distanceKm &&
+                    ` · ${formatKm(a.distanceKm)} · ${paceLabel(a.name, a.minutes, a.distanceKm)}`}
                   {a.intensity && ` · ${INTENSITY_LABEL[a.intensity]}`}
                 </span>
                 {a.details && expanded !== a.id && (
@@ -920,6 +933,23 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
               />
             </div>
           </div>
+          {showDistance && (
+            <Field label="Distância em km (opcional)">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                placeholder="Ex.: 5,2"
+                value={form.distance}
+                onChange={(e) => setForm({ ...form, distance: e.target.value })}
+              />
+              {distanceKm > 0 && parseInt(form.minutes, 10) > 0 && (
+                <span className="mt-1 block text-sm font-bold text-mint-500">
+                  Ritmo:{" "}
+                  {paceLabel(form.name, parseInt(form.minutes, 10), distanceKm)}
+                </span>
+              )}
+            </Field>
+          )}
           <Field label="O que você fez? (opcional)">
             <textarea
               className={`${inputClass} min-h-24`}

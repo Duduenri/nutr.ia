@@ -247,6 +247,7 @@ export interface ActivityInput {
   minutes: number;
   intensity?: 'LIGHT' | 'MODERATE' | 'VIGOROUS';
   details?: string;
+  distanceKm?: number;
   weightKg: number | null;
   sex: 'FEMALE' | 'MALE' | null;
   age: number | null;
@@ -589,6 +590,7 @@ Seja conservadora: apps e relógios costumam superestimar. Arredonde para inteir
       `Atividade: ${input.name}`,
       `Duração: ${input.minutes} min`,
       input.intensity && `Intensidade dita: ${input.intensity}`,
+      input.distanceKm && `Distância: ${input.distanceKm} km`,
       input.details && `O que foi feito: ${input.details}`,
       `Peso: ${input.weightKg ? `${input.weightKg} kg` : 'não informado'}`,
       input.sex && `Sexo: ${input.sex === 'FEMALE' ? 'feminino' : 'masculino'}`,

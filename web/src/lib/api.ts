@@ -141,6 +141,7 @@ export interface Diary {
     kcal: number;
     intensity: "LIGHT" | "MODERATE" | "VIGOROUS" | null;
     details: string | null;
+    distanceKm: number | null;
   }[];
   notes: { id: string; text: string; createdAt: string }[];
 }
@@ -573,4 +574,18 @@ export interface ChallengesOverview {
   open: Challenge[];
   history: Challenge[];
   locks: ChallengeLock[];
+}
+
+export interface TrainingHistory {
+  activities: {
+    id: string;
+    date: string;
+    name: string;
+    minutes: number;
+    kcal: number;
+    intensity: "LIGHT" | "MODERATE" | "VIGOROUS" | null;
+    details: string | null;
+    distanceKm: number | null;
+  }[];
+  steps: { date: string; steps: number }[];
 }

@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { ProfileForm } from "../components/ProfileForm";
 import { WaterReminderForm } from "../components/Reminders";
+import { TrainingTab } from "./Training";
 import {
   Button,
   Card,
@@ -39,7 +40,7 @@ import { shiftDay, shortDate, today } from "../lib/date";
 import { previewPace } from "../lib/goal";
 import { useInvalidateDay } from "../lib/hooks";
 
-type Tab = "weight" | "nutrition" | "photos";
+type Tab = "weight" | "nutrition" | "training" | "photos";
 
 export function ProfilePage({ profile }: { profile: Profile }) {
   const [tab, setTab] = useState<Tab>("weight");
@@ -74,6 +75,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
             [
               ["weight", "Peso"],
               ["nutrition", "Nutrição"],
+              ["training", "Treinos"],
               ["photos", "Fotos"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
@@ -94,6 +96,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
       <div className="space-y-4 px-4 pt-4">
         {tab === "weight" && <WeightTab profile={profile} />}
         {tab === "nutrition" && <NutritionTab profile={profile} />}
+        {tab === "training" && <TrainingTab />}
         {tab === "photos" && <PhotosTab />}
       </div>
       <SettingsSheet

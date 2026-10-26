@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { EntrySource, Intensity, MealType, Prisma } from '@prisma/client';
@@ -31,7 +32,7 @@ import {
 import { AiService } from '../ai/ai.service';
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { ageFrom } from '../profile/nutrition';
-import { parseDay } from '../common/date';
+import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiaryService } from './diary.service';
 
@@ -140,6 +141,12 @@ class EstimateActivityDto {
   @IsString()
   @MaxLength(1000)
   details?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  @Max(500)
+  distanceKm?: number;
 }
 
 class ActivityDto extends EstimateActivityDto {
@@ -283,6 +290,37 @@ export class DiaryController {
         date: parseDay(dto.date.slice(0, 10)),
       },
     });
+  }
+
+  @Get('activities/history')
+  async activityHistory(
+    @UserId() userId: string,
+    @Query('today') today: string,
+  ) {
+    const end = parseDay(today);
+    const [activities, steps] = await Promise.all([
+      this.prisma.activity.findMany({
+        where: { userId, date: { gte: addDays(end, -365), lte: end } },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.dailySteps.findMany({
+        where: { userId, date: { gte: addDays(end, -84), lte: end } },
+        orderBy: { date: 'asc' },
+      }),
+    ]);
+    return {
+      activities: activities.map((a) => ({
+        id: a.id,
+        date: formatDay(a.date),
+        name: a.name,
+        minutes: a.minutes,
+        kcal: a.kcal,
+        intensity: a.intensity,
+        details: a.details,
+        distanceKm: a.distanceKm,
+      })),
+      steps: steps.map((s) => ({ date: formatDay(s.date), steps: s.steps })),
+    };
   }
 
   @Post('activities/estimate')
