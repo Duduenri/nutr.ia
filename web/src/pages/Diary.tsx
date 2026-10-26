@@ -187,24 +187,28 @@ function Summary({ diary }: { diary: Diary }) {
   const remaining = Math.round(targets.kcal - totals.kcal + burned);
   const macros = [
     {
+      key: "carbs",
       label: "Carboidratos",
       value: totals.carbs,
       max: targets.carbs,
       color: "bg-sun",
     },
     {
+      key: "protein",
       label: "Proteínas",
       value: totals.protein,
       max: targets.protein,
       color: "bg-mint-500",
     },
     {
+      key: "fat",
       label: "Gorduras",
       value: totals.fat,
       max: targets.fat,
       color: "bg-peach-400",
     },
     {
+      key: "fiber",
       label: "Fibras",
       value: totals.fiber,
       max: targets.fiber,
@@ -216,8 +220,12 @@ function Summary({ diary }: { diary: Diary }) {
     <div className="pt-safe bg-mint-100 px-4 pb-10">
       <div className="flex items-center justify-between">
         <div className="w-24 text-center">
-          <div className="text-2xl font-extrabold">{fmt(totals.kcal)}</div>
-          <div className="text-sm font-semibold text-ink/60">Consumidas</div>
+          <button onClick={() => setMicro("kcal")} className="w-full">
+            <div className="text-2xl font-extrabold">{fmt(totals.kcal)}</div>
+            <div className="text-sm font-semibold text-ink/60 underline decoration-ink/20 underline-offset-2">
+              Consumidas
+            </div>
+          </button>
         </div>
         <div className="relative">
           <Ring value={totals.kcal} max={targets.kcal + burned} />
@@ -240,18 +248,24 @@ function Summary({ diary }: { diary: Diary }) {
       </div>
       <div className="mt-3 grid grid-cols-4 gap-3">
         {macros.map((m) => (
-          <div key={m.label}>
+          <button
+            key={m.label}
+            onClick={() => setMicro(m.key)}
+            className="text-left"
+          >
             <ProgressBar
               value={m.value}
               max={m.max ?? 0}
               color={m.color}
               className="h-1.5 bg-white/70"
             />
-            <div className="mt-1 text-xs font-bold">{m.label}</div>
+            <div className="mt-1 text-xs font-bold underline decoration-ink/20 underline-offset-2">
+              {m.label}
+            </div>
             <div className="text-xs text-ink/60">
               {fmt(m.value)} / {fmt(m.max)} g
             </div>
-          </div>
+          </button>
         ))}
       </div>
       <button
@@ -283,91 +297,127 @@ function Summary({ diary }: { diary: Diary }) {
           </p>
         </div>
       )}
-      <MicroSheet diary={diary} micro={micro} onClose={() => setMicro(null)} />
+      <NutrientSheet
+        diary={diary}
+        nutrient={micro}
+        onClose={() => setMicro(null)}
+      />
     </div>
   );
 }
 
-function MicroSheet({
+type MacroField = "kcal" | "protein" | "carbs" | "fat" | "fiber";
+
+const MACRO_INFO: Record<MacroField, { label: string; unit: string }> = {
+  kcal: { label: "Calorias", unit: "kcal" },
+  carbs: { label: "Carboidratos", unit: "g" },
+  protein: { label: "Proteínas", unit: "g" },
+  fat: { label: "Gorduras", unit: "g" },
+  fiber: { label: "Fibras", unit: "g" },
+};
+
+function isMacro(key: string): key is MacroField {
+  return key in MACRO_INFO;
+}
+
+function NutrientSheet({
   diary,
-  micro,
+  nutrient,
   onClose,
 }: {
   diary: Diary;
-  micro: string | null;
+  nutrient: string | null;
   onClose: () => void;
 }) {
-  const info = micro ? MICRO_LABEL[micro] : null;
-  const total = micro ? (diary.totals.micros[micro] ?? 0) : 0;
-  const sources = micro
-    ? diary.meals
-        .flatMap((m) =>
-          m.entries.map((e) => ({ ...e, amount: e.micros?.[micro] ?? 0 })),
-        )
-        .filter((e) => e.amount > 0)
-        .sort((a, b) => b.amount - a.amount)
-    : [];
-  const pctOfRef = info ? Math.round((total / info.ref) * 100) : 0;
+  if (!nutrient)
+    return (
+      <Sheet open={false} onClose={onClose}>
+        {null}
+      </Sheet>
+    );
+  const macro = isMacro(nutrient);
+  const info = macro
+    ? { ...MACRO_INFO[nutrient], ref: diary.targets[nutrient], limit: false }
+    : MICRO_LABEL[nutrient];
+  const amountOf = (e: Entry) =>
+    macro ? (e[nutrient] ?? 0) : (e.micros?.[nutrient] ?? 0);
+  const total = macro
+    ? diary.totals[nutrient]
+    : (diary.totals.micros[nutrient] ?? 0);
+  const sources = diary.meals
+    .flatMap((m) => m.entries.map((e) => ({ ...e, amount: amountOf(e) })))
+    .filter((e) => e.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const ref = info.ref ?? 0;
+  const digits = (v: number) => (v < 10 ? 1 : 0);
 
   return (
-    <Sheet open={micro !== null} onClose={onClose} title={info?.label}>
-      {info && (
-        <div className="space-y-4 pb-6">
-          <div className="rounded-2xl bg-soft p-4">
-            <div className="flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold">
-                {fmt(total, total < 10 ? 1 : 0)} {info.unit}
-              </span>
+    <Sheet open onClose={onClose} title={info.label}>
+      <div className="space-y-4 pb-6">
+        <div className="rounded-2xl bg-soft p-4">
+          <div className="flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold">
+              {fmt(total, digits(total))} {info.unit}
+            </span>
+            {ref > 0 && (
               <span className="text-sm font-bold text-ink/60">
-                {pctOfRef}% {info.limit ? "do limite" : "da referência"}
+                {Math.round((total / ref) * 100)}%{" "}
+                {macro ? "da meta" : info.limit ? "do limite" : "da referência"}
               </span>
-            </div>
+            )}
+          </div>
+          {ref > 0 && (
             <ProgressBar
               value={total}
-              max={info.ref}
+              max={ref}
               color={
-                info.limit && total > info.ref ? "bg-peach-500" : "bg-mint-500"
+                (info.limit || nutrient === "kcal") && total > ref
+                  ? "bg-peach-500"
+                  : "bg-mint-500"
               }
               className="mt-2 h-2"
             />
-            <p className="mt-2 text-xs text-ink/50">
-              {info.limit
-                ? `Limite diário para adultos: até ${fmt(info.ref)} ${info.unit}.`
-                : `Referência diária para adultos: ${fmt(info.ref)} ${info.unit}.`}{" "}
-              Sua equipe pode ter passado outra meta.
-            </p>
-          </div>
-          {sources.length === 0 ? (
-            <p className="text-center text-sm text-ink/60">
-              Nenhum alimento registrado hoje tem {info.label.toLowerCase()}.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {sources.map((e) => (
-                <li key={e.id} className="rounded-2xl bg-soft px-3 py-2">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate font-bold">{e.name}</span>
-                    <span className="shrink-0 font-extrabold">
-                      {fmt(e.amount, e.amount < 10 ? 1 : 0)} {info.unit}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <ProgressBar
-                      value={e.amount}
-                      max={total}
-                      className="h-1.5 bg-white"
-                    />
-                    <span className="w-28 shrink-0 text-right text-xs text-ink/50">
-                      {MEAL_EMOJI[e.meal]} {fmt(e.grams)} g ·{" "}
-                      {Math.round((e.amount / total) * 100)}%
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
           )}
+          <p className="mt-2 text-xs text-ink/50">
+            {macro
+              ? ref > 0
+                ? `Sua meta de hoje: ${fmt(ref)} ${info.unit}.`
+                : "Você ainda não tem meta pra isso."
+              : info.limit
+                ? `Limite diário para adultos: até ${fmt(ref)} ${info.unit}. Sua equipe pode ter passado outra meta.`
+                : `Referência diária para adultos: ${fmt(ref)} ${info.unit}. Sua equipe pode ter passado outra meta.`}
+          </p>
         </div>
-      )}
+        {sources.length === 0 ? (
+          <p className="text-center text-sm text-ink/60">
+            Nenhum alimento registrado nesse dia tem {info.label.toLowerCase()}.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {sources.map((e) => (
+              <li key={e.id} className="rounded-2xl bg-soft px-3 py-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate font-bold">{e.name}</span>
+                  <span className="shrink-0 font-extrabold">
+                    {fmt(e.amount, digits(e.amount))} {info.unit}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ProgressBar
+                    value={e.amount}
+                    max={total}
+                    className="h-1.5 bg-white"
+                  />
+                  <span className="w-28 shrink-0 text-right text-xs text-ink/50">
+                    {MEAL_EMOJI[e.meal]} {fmt(e.grams)} g ·{" "}
+                    {Math.round((e.amount / total) * 100)}%
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </Sheet>
   );
 }

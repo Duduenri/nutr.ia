@@ -38,13 +38,14 @@ interface CartItem extends FoodItem {
   photoId?: string;
 }
 
-type Tab = "meal" | "barcode" | "search" | "recent";
+type Tab = "meal" | "barcode" | "search" | "recent" | "manual";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "meal", label: "Foto e texto", icon: "📷" },
   { id: "barcode", label: "Código de barras", icon: "🏷️" },
   { id: "search", label: "Buscar", icon: "🔍" },
   { id: "recent", label: "Recentes", icon: "🕘" },
+  { id: "manual", label: "Manual", icon: "✏️" },
 ];
 
 let keySeq = 0;
@@ -129,6 +130,9 @@ export function AddFoodPage() {
         )}
         {tab === "search" && (
           <SearchTab onAdd={(item, source) => addItems([item], source)} />
+        )}
+        {tab === "manual" && (
+          <ManualForm onAdd={(item) => addItems([item], "MANUAL")} />
         )}
         {tab === "recent" && (
           <RecentTab onAdd={(item) => addItems([item], "SEARCH")} />
@@ -697,89 +701,90 @@ function ManualSheet({
   onClose: () => void;
   onAdd: (item: FoodItem) => void;
 }) {
-  const empty = {
-    name: "",
-    grams: "100",
-    kcal: "",
-    protein: "0",
-    carbs: "0",
-    fat: "0",
-  };
-  const [f, setF] = useState(empty);
+  return (
+    <Sheet open={open} onClose={onClose} title="Adicionar manualmente">
+      <div className="pb-4">
+        <ManualForm
+          onAdd={(item) => {
+            onAdd(item);
+            onClose();
+          }}
+        />
+      </div>
+    </Sheet>
+  );
+}
+
+const EMPTY_MANUAL = {
+  name: "",
+  grams: "100",
+  kcal: "",
+  protein: "",
+  carbs: "",
+  fat: "",
+  fiber: "",
+};
+
+function ManualForm({ onAdd }: { onAdd: (item: FoodItem) => void }) {
+  const [f, setF] = useState(EMPTY_MANUAL);
   const n = (v: string) => parseFloat(v.replace(",", ".")) || 0;
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
     setF({ ...f, [k]: e.target.value });
+  const num = (k: keyof typeof f, label: string, placeholder = "0") => (
+    <Field label={label}>
+      <input
+        className={inputClass}
+        inputMode="decimal"
+        placeholder={placeholder}
+        value={f[k]}
+        onChange={set(k)}
+      />
+    </Field>
+  );
 
   return (
-    <Sheet open={open} onClose={onClose} title="Adicionar manualmente">
-      <div className="space-y-3 pb-4">
-        <Field label="Nome">
-          <input className={inputClass} value={f.name} onChange={set("name")} />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Quantidade (g)">
-            <input
-              className={inputClass}
-              inputMode="decimal"
-              value={f.grams}
-              onChange={set("grams")}
-            />
-          </Field>
-          <Field label="Calorias">
-            <input
-              className={inputClass}
-              inputMode="decimal"
-              value={f.kcal}
-              onChange={set("kcal")}
-            />
-          </Field>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Proteína (g)">
-            <input
-              className={inputClass}
-              inputMode="decimal"
-              value={f.protein}
-              onChange={set("protein")}
-            />
-          </Field>
-          <Field label="Carbo (g)">
-            <input
-              className={inputClass}
-              inputMode="decimal"
-              value={f.carbs}
-              onChange={set("carbs")}
-            />
-          </Field>
-          <Field label="Gordura (g)">
-            <input
-              className={inputClass}
-              inputMode="decimal"
-              value={f.fat}
-              onChange={set("fat")}
-            />
-          </Field>
-        </div>
-        <Button
-          className="w-full"
-          disabled={!f.name.trim() || !f.kcal}
-          onClick={() => {
-            onAdd({
-              name: f.name.trim(),
-              grams: n(f.grams),
-              kcal: n(f.kcal),
-              protein: n(f.protein),
-              carbs: n(f.carbs),
-              fat: n(f.fat),
-            });
-            setF(empty);
-            onClose();
-          }}
-        >
-          Adicionar
-        </Button>
+    <div className="space-y-3">
+      <p className="text-sm text-ink/60">
+        Já sabe os valores (rótulo, app, nutricionista)? Preencha da porção que
+        você comeu.
+      </p>
+      <Field label="Nome">
+        <input
+          className={inputClass}
+          value={f.name}
+          placeholder="Ex.: barrinha de proteína"
+          onChange={set("name")}
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        {num("grams", "Quantidade (g ou ml)", "100")}
+        {num("kcal", "Calorias (kcal)")}
       </div>
-    </Sheet>
+      <div className="grid grid-cols-2 gap-3">
+        {num("protein", "Proteína (g)")}
+        {num("carbs", "Carboidrato (g)")}
+        {num("fat", "Gordura (g)")}
+        {num("fiber", "Fibra (g)")}
+      </div>
+      <Button
+        className="w-full"
+        disabled={!f.name.trim() || !f.kcal.trim()}
+        onClick={() => {
+          onAdd({
+            name: f.name.trim(),
+            grams: n(f.grams),
+            kcal: n(f.kcal),
+            protein: n(f.protein),
+            carbs: n(f.carbs),
+            fat: n(f.fat),
+            fiber: f.fiber.trim() ? n(f.fiber) : null,
+          });
+          setF(EMPTY_MANUAL);
+        }}
+      >
+        Adicionar
+      </Button>
+    </div>
   );
 }
 

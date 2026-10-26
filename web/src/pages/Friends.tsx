@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  ChallengeButton,
+  ChallengesCard,
+  useChallenges,
+} from "../components/Challenges";
 import { Svg } from "../components/Svg";
 import {
   Button,
@@ -201,6 +206,8 @@ export function FriendsPage() {
           </Card>
         )}
 
+        {data && data.ranking.length > 1 && <ChallengesCard />}
+
         {data && data.incoming.length > 0 && (
           <Card className="space-y-3">
             <h2 className="font-extrabold">Pedidos de amizade</h2>
@@ -287,7 +294,7 @@ export function FriendsPage() {
                       <span className="flex flex-wrap gap-x-2 text-xs font-bold text-ink/50">
                         <span>🔥 {r.streak}</span>
                         <span>📅 {r.daysLogged}/7</span>
-                        <span>💧 {r.waterDays}</span>
+                        <span>💧 {r.waterTodayPct}% hoje</span>
                         <span>🎯 {r.missions}</span>
                         {r.fasts > 0 && <span>⏱️ {r.fasts}</span>}
                         {r.weightLostPct !== null && r.weightLostPct > 0 && (
@@ -309,8 +316,9 @@ export function FriendsPage() {
             </ul>
             <p className="mt-3 text-xs text-ink/50">
               Pontos: 10 por dia com refeição registrada, 5 por meta de água, 5
-              por missão resgatada e 10 por jejum completo. Ninguém vê suas
-              calorias, comidas, fotos ou peso.
+              por missão resgatada e 10 por jejum completo. 💧 = quanto da meta
+              de água já bebeu hoje. Ninguém vê suas calorias, comidas, fotos ou
+              peso.
             </p>
           </section>
         )}
@@ -359,6 +367,7 @@ function FriendSheet({
 }) {
   const [sent, setSent] = useState<string | null>(null);
   const [lastId, setLastId] = useState<string | null>(null);
+  const { data: challenges } = useChallenges();
   if (entry && entry.userId !== lastId) {
     setLastId(entry.userId);
     setSent(null);
@@ -381,17 +390,17 @@ function FriendSheet({
             <h2 className="text-2xl font-extrabold">{entry.name}</h2>
             <p className="text-sm text-ink/60">
               {entry.petName ? `${entry.petName} · ` : ""}nível {entry.petLevel}{" "}
-              · {entry.achievements} conquistas
+              · {entry.achievements} conquistas · ⭐ {entry.points} pontos
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm">
             {[
               ["🔥", entry.streak, "dias seguidos"],
               ["📅", `${entry.daysLogged}/7`, "dias na semana"],
-              ["💧", entry.waterDays, "metas de água"],
+              ["💧", `${entry.waterTodayPct}%`, "da água hoje"],
+              ["💧", `${entry.waterWeekPct}%`, "média na semana"],
               ["🎯", entry.missions, "missões"],
               ["⏱️", entry.fasts, "jejuns"],
-              ["⭐", entry.points, "pontos"],
             ].map(([icon, value, label]) => (
               <div key={label as string} className="rounded-2xl bg-soft py-2">
                 <div className="text-lg font-extrabold">
@@ -408,6 +417,13 @@ function FriendSheet({
           )}
           {!entry.isMe && (
             <>
+              <ChallengeButton
+                friendId={entry.userId}
+                friendName={entry.name}
+                lock={challenges?.locks.find(
+                  (l) => l.friendId === entry.userId,
+                )}
+              />
               <div>
                 <p className="mb-2 font-extrabold">Mandar força</p>
                 <div className="flex justify-center gap-2">

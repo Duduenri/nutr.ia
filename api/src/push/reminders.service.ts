@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { parseDay } from '../common/date';
+import { ChallengesService } from '../friends/challenges.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from './push.service';
 
@@ -48,6 +49,7 @@ export class RemindersService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly push: PushService,
+    private readonly challenges: ChallengesService,
   ) {}
 
   onModuleInit() {
@@ -62,6 +64,7 @@ export class RemindersService implements OnModuleInit, OnModuleDestroy {
     if (this.running) return;
     this.running = true;
     try {
+      await this.challenges.expire();
       const users = await this.prisma.user.findMany({
         where: {
           pushSubscriptions: { some: {} },

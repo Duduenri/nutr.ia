@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { formatDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -17,6 +18,11 @@ import {
 } from './catalog';
 
 const DAY_MS = 86_400_000;
+
+export const EARNED_GEMS: Prisma.GemTxWhereInput = {
+  amount: { gt: 0 },
+  NOT: { refKey: { endsWith: ':back' } },
+};
 const HOUR_MS = 3_600_000;
 
 function seededIndex(seed: string, size: number): number {
@@ -60,7 +66,7 @@ export class GameService {
         _sum: { amount: true },
       }),
       this.prisma.gemTx.aggregate({
-        where: { userId, amount: { gt: 0 } },
+        where: { userId, ...EARNED_GEMS },
         _sum: { amount: true },
       }),
     ]);
@@ -91,6 +97,15 @@ export class GameService {
       customRecipes,
       activities,
       friends,
+      activityMinutes,
+      weighIns,
+      cheersSent,
+      supplementLogs,
+      bigStepDays,
+      challengesWon,
+      challengesDone,
+      challengesSent,
+      notes,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.groupBy({
@@ -122,6 +137,22 @@ export class GameService {
           OR: [{ requesterId: userId }, { addresseeId: userId }],
         },
       }),
+      this.prisma.activity.aggregate({
+        where: { userId },
+        _sum: { minutes: true },
+      }),
+      this.prisma.weightLog.count({ where: { userId } }),
+      this.prisma.cheer.count({ where: { fromId: userId } }),
+      this.prisma.supplementLog.count({ where: { userId } }),
+      this.prisma.dailySteps.count({
+        where: { userId, steps: { gte: 10_000 } },
+      }),
+      this.prisma.challenge.count({ where: { winnerId: userId } }),
+      this.prisma.challenge.count({
+        where: { toId: userId, status: 'COMPLETED' },
+      }),
+      this.prisma.challenge.count({ where: { fromId: userId } }),
+      this.prisma.note.count({ where: { userId } }),
     ]);
 
     const kcalTarget = user.kcalTarget;
@@ -166,6 +197,15 @@ export class GameService {
       customRecipes,
       activities,
       friends,
+      activityMinutes: activityMinutes._sum.minutes ?? 0,
+      weighIns,
+      cheersSent,
+      supplementLogs,
+      bigStepDays,
+      challengesWon,
+      challengesDone,
+      challengesSent,
+      notes,
     };
   }
 
@@ -201,20 +241,30 @@ export class GameService {
 
   async state(userId: string) {
     await this.evaluate(userId);
-    const [user, gems, items, unseen, pendingFriends, unseenCheers] =
-      await Promise.all([
-        this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-        this.gems(userId),
-        this.prisma.userItem.findMany({ where: { userId } }),
-        this.prisma.userAchievement.findMany({
-          where: { userId, seen: false },
-          orderBy: { unlockedAt: 'asc' },
-        }),
-        this.prisma.friendship.count({
-          where: { addresseeId: userId, status: 'PENDING' },
-        }),
-        this.prisma.cheer.count({ where: { toId: userId, seen: false } }),
-      ]);
+    const [
+      user,
+      gems,
+      items,
+      unseen,
+      pendingFriends,
+      unseenCheers,
+      pendingChallenges,
+    ] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      this.gems(userId),
+      this.prisma.userItem.findMany({ where: { userId } }),
+      this.prisma.userAchievement.findMany({
+        where: { userId, seen: false },
+        orderBy: { unlockedAt: 'asc' },
+      }),
+      this.prisma.friendship.count({
+        where: { addresseeId: userId, status: 'PENDING' },
+      }),
+      this.prisma.cheer.count({ where: { toId: userId, seen: false } }),
+      this.prisma.challenge.count({
+        where: { toId: userId, status: 'PENDING' },
+      }),
+    ]);
     const equipped = items.filter((i) => i.equipped).map((i) => i.itemId);
     if (!equipped.some((id) => id.startsWith('color_'))) {
       equipped.push(DEFAULT_COLOR);
@@ -226,7 +276,7 @@ export class GameService {
       lifetimeGems: gems.lifetime,
       owned: [DEFAULT_COLOR, ...items.map((i) => i.itemId)],
       equipped,
-      friendsBadge: pendingFriends + unseenCheers,
+      friendsBadge: pendingFriends + unseenCheers + pendingChallenges,
       newAchievements: unseen
         .map((u) => ACHIEVEMENTS.find((a) => a.key === u.key))
         .filter((a) => a !== undefined)

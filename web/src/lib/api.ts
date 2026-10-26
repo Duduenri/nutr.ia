@@ -456,6 +456,8 @@ export interface RankEntry {
   streak: number;
   daysLogged: number;
   waterDays: number;
+  waterTodayPct: number;
+  waterWeekPct: number;
   missions: number;
   fasts: number;
   points: number;
@@ -535,3 +537,40 @@ export const SURGERY_LABEL: Record<SurgeryType, string> = {
   BYPASS: "Bypass",
   BPD_DS: "Duodenal switch",
 };
+
+export type ChallengeStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "DECLINED"
+  | "CANCELLED"
+  | "EXPIRED"
+  | "COMPLETED"
+  | "FAILED";
+
+export interface Challenge {
+  id: string;
+  title: string;
+  stake: number;
+  deadline: string;
+  status: ChallengeStatus;
+  proof: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  fromMe: boolean;
+  otherId: string;
+  otherName: string;
+  won: boolean | null;
+}
+
+export interface ChallengeLock {
+  friendId: string;
+  canChallenge: boolean;
+  reason: "open" | "winner" | null;
+  until: string | null;
+}
+
+export interface ChallengesOverview {
+  open: Challenge[];
+  history: Challenge[];
+  locks: ChallengeLock[];
+}

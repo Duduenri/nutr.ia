@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { DEFAULT_COLOR, levelFor } from '../game/catalog';
+import { EARNED_GEMS } from '../game/game.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -128,7 +129,7 @@ export class FriendsService {
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       }),
       this.prisma.gemTx.aggregate({
-        where: { userId, amount: { gt: 0 } },
+        where: { userId, ...EARNED_GEMS },
         _sum: { amount: true },
       }),
       this.prisma.userItem.findMany({ where: { userId, equipped: true } }),
@@ -146,6 +147,19 @@ export class FriendsService {
     const waterDays = user.waterTargetMl
       ? water.filter((w) => (w._sum.ml ?? 0) >= user.waterTargetMl!).length
       : 0;
+    const waterTarget = user.waterTargetMl ?? 2000;
+    const pctOf = (ml: number) =>
+      Math.min(100, Math.round((ml / waterTarget) * 100));
+    const mlOn = (d: Date) =>
+      water.find((w) => formatDay(w.date) === formatDay(d))?._sum.ml ?? 0;
+    const weekDays = Math.round(
+      (today.getTime() - weekStart.getTime()) / 86_400_000 + 1,
+    );
+    const waterWeekPct = Math.round(
+      Array.from({ length: weekDays }, (_, i) =>
+        pctOf(mlOn(addDays(weekStart, i))),
+      ).reduce((a, b) => a + b, 0) / weekDays,
+    );
     const fastsDone = fasts.filter(
       (f) => f.endAt!.getTime() - f.startAt.getTime() >= f.goalHours * HOUR_MS,
     ).length;
@@ -167,6 +181,8 @@ export class FriendsService {
       streak,
       daysLogged,
       waterDays,
+      waterTodayPct: pctOf(mlOn(today)),
+      waterWeekPct,
       missions: claims,
       fasts: fastsDone,
       points: daysLogged * 10 + waterDays * 5 + claims * 5 + fastsDone * 10,

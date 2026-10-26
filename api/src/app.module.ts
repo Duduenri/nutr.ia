@@ -13,6 +13,8 @@ import { ExamsController } from './exams/exams.controller';
 import { ExamsService } from './exams/exams.service';
 import { FastingController } from './fasting/fasting.controller';
 import { FoodsController } from './foods/foods.controller';
+import { ChallengesController } from './friends/challenges.controller';
+import { ChallengesService } from './friends/challenges.service';
 import { FriendsController } from './friends/friends.controller';
 import { FriendsService } from './friends/friends.service';
 import { GameController } from './game/game.controller';
@@ -55,6 +57,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     GameController,
     SupplementsController,
     FriendsController,
+    ChallengesController,
     ExamsController,
     PushController,
   ],
@@ -66,6 +69,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     UserContextService,
     GameService,
     FriendsService,
+    ChallengesService,
     ExamsService,
     PushService,
     RemindersService,

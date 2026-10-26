@@ -112,6 +112,8 @@ model User {
   receivedFriendships Friendship[]       @relation("addressee")
   sentCheers          Cheer[]            @relation("cheerFrom")
   receivedCheers      Cheer[]            @relation("cheerTo")
+  challengesSent      Challenge[]        @relation("challengeFrom")
+  challengesReceived  Challenge[]        @relation("challengeTo")
   labExams            LabExam[]
   labResults          LabResult[]
   documents           UserDocument[]
@@ -205,10 +207,10 @@ model WeightLog {
 }
 
 model Activity {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date      DateTime @db.Date
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime   @db.Date
   name      String
   minutes   Int
   kcal      Int
@@ -475,4 +477,34 @@ model ReminderLog {
   sentAt       DateTime @default(now())
 
   @@id([userId, supplementId, date, time])
+}
+
+enum ChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+  COMPLETED
+  FAILED
+}
+
+model Challenge {
+  id          String          @id @default(cuid())
+  fromId      String
+  from        User            @relation("challengeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId        String
+  to          User            @relation("challengeTo", fields: [toId], references: [id], onDelete: Cascade)
+  title       String
+  stake       Int
+  deadline    DateTime
+  status      ChallengeStatus @default(PENDING)
+  winnerId    String?
+  proof       String?
+  createdAt   DateTime        @default(now())
+  respondedAt DateTime?
+  resolvedAt  DateTime?
+
+  @@index([fromId, status])
+  @@index([toId, status])
 }

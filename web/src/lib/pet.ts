@@ -12,7 +12,20 @@ export const PET_COLORS: Record<string, string> = {
   color_lilac: "#c7a8f0",
   color_yellow: "#ffd86b",
   color_sky: "#9fd0f5",
+  color_coral: "#ff8a7a",
+  color_lime: "#c4e46a",
+  color_galaxy: "#8b7cf6",
+  color_gold: "#f5c84c",
 };
+
+function star(cx: number, cy: number, r: number, fill: string): string {
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    return `${(cx + Math.cos(a) * rr).toFixed(1)},${(cy + Math.sin(a) * rr).toFixed(1)}`;
+  });
+  return `<polygon points="${pts.join(" ")}" fill="${fill}"/>`;
+}
 
 function sprout(level: number): string {
   const h = Math.min(30 + level * 6, 70);
@@ -60,6 +73,12 @@ const HATS: Record<string, string> = {
   hat_beach: `<ellipse cx="100" cy="120" rx="54" ry="9" fill="#ffc9d6"/><path d="M72 120 Q74 92 100 90 Q126 92 128 120 Z" fill="#ffd6e0"/><rect x="73" y="110" width="54" height="6" fill="#7cc242"/><circle cx="80" cy="113" r="4" fill="#fff"/>`,
   hat_beanie: `<path d="M64 124 Q66 82 100 80 Q134 82 136 124 Z" fill="#6f9ce8"/><rect x="62" y="116" width="76" height="12" rx="6" fill="#4f7fd0"/><circle cx="100" cy="78" r="8" fill="#fff"/>`,
   hat_chef: `<rect x="76" y="104" width="48" height="18" rx="4" fill="#fff" stroke="#e5e7eb" stroke-width="2"/><circle cx="82" cy="94" r="14" fill="#fff"/><circle cx="100" cy="86" r="16" fill="#fff"/><circle cx="118" cy="94" r="14" fill="#fff"/>`,
+  hat_headband: `<path d="M50 138 Q100 108 150 138" stroke="#ff5c8a" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M60 131 Q100 110 140 131" stroke="#fff" stroke-width="2" fill="none" opacity="0.7"/><path d="M146 134 L158 126 M146 134 L160 140" stroke="#ff5c8a" stroke-width="5" stroke-linecap="round"/>`,
+  hat_bunny: `<g transform="rotate(-14 82 116)"><ellipse cx="82" cy="88" rx="11" ry="28" fill="#fff" stroke="#e5e7eb" stroke-width="2"/><ellipse cx="82" cy="90" rx="5" ry="19" fill="#ffc9d6"/></g><g transform="rotate(14 118 116)"><ellipse cx="118" cy="88" rx="11" ry="28" fill="#fff" stroke="#e5e7eb" stroke-width="2"/><ellipse cx="118" cy="90" rx="5" ry="19" fill="#ffc9d6"/></g>`,
+  hat_cowboy: `<ellipse cx="100" cy="119" rx="60" ry="10" fill="#a8652f"/><path d="M74 119 Q70 84 88 86 Q100 96 112 86 Q130 84 126 119 Z" fill="#c98447"/><rect x="74" y="108" width="52" height="6" fill="#6b3f1d"/><circle cx="100" cy="111" r="3" fill="#ffd23f"/>`,
+  hat_wizard: `<ellipse cx="100" cy="120" rx="44" ry="8" fill="#5847c2"/><path d="M72 120 L108 48 L128 120 Z" fill="#6b5bd6"/>${star(98, 96, 6, "#ffd86b")}${star(112, 76, 4, "#ffd86b")}<circle cx="88" cy="110" r="2.5" fill="#fff"/>`,
+  hat_tiara: `<path d="M72 120 L78 100 L89 112 L100 90 L111 112 L122 100 L128 120 Z" fill="#ffd6f0" stroke="#f3a6d0" stroke-width="2"/><circle cx="100" cy="104" r="4.5" fill="#ff5c8a"/><circle cx="80" cy="112" r="3" fill="#8fdcc6"/><circle cx="120" cy="112" r="3" fill="#8fdcc6"/>`,
+  hat_halo: `<ellipse cx="100" cy="90" rx="32" ry="8" fill="none" stroke="#fff3b0" stroke-width="12" opacity="0.6"/><ellipse cx="100" cy="90" rx="32" ry="8" fill="none" stroke="#ffd23f" stroke-width="5"/>`,
   hat_crown: `<path d="M70 124 L72 92 L86 108 L100 86 L114 108 L128 92 L130 124 Z" fill="#ffc83d" stroke="#e0a800" stroke-width="2"/><circle cx="100" cy="112" r="5" fill="#ff5c8a"/><circle cx="82" cy="116" r="3.5" fill="#6fd3c0"/><circle cx="118" cy="116" r="3.5" fill="#6fd3c0"/>`,
 };
 
@@ -67,6 +86,10 @@ const GLASSES: Record<string, string> = {
   glasses_round: `<circle cx="86" cy="150" r="12" fill="#fff" fill-opacity="0.25" stroke="${INK}" stroke-width="3"/><circle cx="114" cy="150" r="12" fill="#fff" fill-opacity="0.25" stroke="${INK}" stroke-width="3"/><path d="M98 150 L102 150" stroke="${INK}" stroke-width="3"/>`,
   glasses_sun: `<rect x="72" y="141" width="26" height="18" rx="8" fill="${INK}" opacity="0.92"/><rect x="102" y="141" width="26" height="18" rx="8" fill="${INK}" opacity="0.92"/><path d="M98 148 L102 148" stroke="${INK}" stroke-width="3"/><path d="M77 145 L86 145" stroke="#fff" stroke-width="2" opacity="0.6"/>`,
   glasses_cat: `<path d="M70 142 Q86 136 98 146 Q94 160 82 160 Q70 158 70 142 Z" fill="#fff" fill-opacity="0.3" stroke="${INK}" stroke-width="3"/><path d="M130 142 Q114 136 102 146 Q106 160 118 160 Q130 158 130 142 Z" fill="#fff" fill-opacity="0.3" stroke="${INK}" stroke-width="3"/>`,
+  glasses_star: `${star(86, 150, 15, "#ffd23f")}${star(114, 150, 15, "#ffd23f")}<path d="M98 150 L102 150" stroke="${INK}" stroke-width="3"/>`,
+  glasses_nerd: `<rect x="71" y="140" width="27" height="21" rx="3" fill="#fff" fill-opacity="0.2" stroke="${INK}" stroke-width="4"/><rect x="102" y="140" width="27" height="21" rx="3" fill="#fff" fill-opacity="0.2" stroke="${INK}" stroke-width="4"/><path d="M98 147 L102 147" stroke="${INK}" stroke-width="4"/>`,
+  glasses_swim: `<path d="M49 148 L151 148" stroke="#2f80c4" stroke-width="5"/><ellipse cx="86" cy="150" rx="13" ry="11" fill="#7cc4ef" fill-opacity="0.75" stroke="#1f6fb0" stroke-width="3"/><ellipse cx="114" cy="150" rx="13" ry="11" fill="#7cc4ef" fill-opacity="0.75" stroke="#1f6fb0" stroke-width="3"/><path d="M80 145 L86 143" stroke="#fff" stroke-width="2"/>`,
+  glasses_vr: `<rect x="66" y="138" width="68" height="25" rx="12" fill="#2b2f77"/><rect x="72" y="143" width="56" height="7" rx="3.5" fill="#6fe3ff" opacity="0.8"/><circle cx="128" cy="157" r="2" fill="#ff5c8a"/>`,
   glasses_heart: `<path d="M86 162 L73 149 Q68 141 76 138 Q82 136 86 142 Q90 136 96 138 Q104 141 99 149 Z" fill="#ff5c8a" opacity="0.9"/><path d="M114 162 L101 149 Q96 141 104 138 Q110 136 114 142 Q118 136 124 138 Q132 141 127 149 Z" fill="#ff5c8a" opacity="0.9"/>`,
 };
 
@@ -140,6 +163,66 @@ const GARDEN: Record<string, { x: number; y: number; svg: string }> = {
       )
       .join(""),
   },
+  garden_rainbow: {
+    x: 195,
+    y: 238,
+    svg: ["#ff9a9a", "#ffc78a", "#ffe58a", "#a8e08a", "#8ac8f0", "#b8a2f0"]
+      .map(
+        (c, i) =>
+          `<path d="M${-150 + i * 9} 0 A${150 - i * 9} ${150 - i * 9} 0 0 1 ${150 - i * 9} 0" stroke="${c}" stroke-width="9" fill="none" opacity="0.75"/>`,
+      )
+      .join(""),
+  },
+  garden_sunflowers: {
+    x: 342,
+    y: 252,
+    svg: [
+      [-14, -6],
+      [14, 4],
+    ]
+      .map(
+        ([dx, h]) =>
+          `<g transform="translate(${dx} 0)"><path d="M0 0 L0 ${-50 + h}" stroke="#5aa832" stroke-width="4"/><path d="M0 ${-22 + h / 2} Q10 ${-32 + h / 2} 14 ${-24 + h / 2} Q8 ${-18 + h / 2} 0 ${-22 + h / 2}" fill="#7cc242"/>${Array.from(
+            { length: 10 },
+            (_, i) => {
+              const a = (i / 10) * Math.PI * 2;
+              return `<ellipse cx="${(Math.cos(a) * 11).toFixed(1)}" cy="${(-50 + h + Math.sin(a) * 11).toFixed(1)}" rx="5" ry="5" fill="#ffc83d"/>`;
+            },
+          ).join("")}<circle cx="0" cy="${-50 + h}" r="7" fill="#8a5a2b"/></g>`,
+      )
+      .join(""),
+  },
+  garden_bench: {
+    x: 336,
+    y: 312,
+    svg: `<rect x="-30" y="-14" width="60" height="7" rx="3" fill="#c98447"/><rect x="-30" y="-26" width="60" height="6" rx="3" fill="#b5733d"/><rect x="-26" y="-8" width="5" height="20" fill="#8a5a2b"/><rect x="21" y="-8" width="5" height="20" fill="#8a5a2b"/>`,
+  },
+  garden_dumbbell: {
+    x: 286,
+    y: 330,
+    svg: `<rect x="-22" y="-3" width="44" height="6" rx="3" fill="#9aa3b5"/><rect x="-31" y="-13" width="10" height="26" rx="3" fill="#3d4a66"/><rect x="21" y="-13" width="10" height="26" rx="3" fill="#3d4a66"/><rect x="-37" y="-8" width="6" height="16" rx="2" fill="#56627f"/><rect x="31" y="-8" width="6" height="16" rx="2" fill="#56627f"/>`,
+  },
+  garden_bottle: {
+    x: 108,
+    y: 382,
+    svg: `<rect x="-10" y="-34" width="20" height="38" rx="7" fill="#7cc4ef" opacity="0.9"/><rect x="-6" y="-42" width="12" height="9" rx="2" fill="#2f80c4"/><rect x="-10" y="-20" width="20" height="9" fill="#fff" opacity="0.75"/><path d="M-5 -28 L-5 -2" stroke="#fff" stroke-width="2" opacity="0.6"/>`,
+  },
+  garden_watermelon: {
+    x: 236,
+    y: 392,
+    svg: `<path d="M-26 0 A26 26 0 0 0 26 0 Z" fill="#5aa832"/><path d="M-22 0 A22 22 0 0 0 22 0 Z" fill="#ff6f7d"/>${[
+      [-10, 6],
+      [0, 11],
+      [10, 6],
+      [-4, 4],
+      [6, 3],
+    ]
+      .map(
+        ([x, y]) =>
+          `<ellipse cx="${x}" cy="${y}" rx="1.6" ry="2.4" fill="${INK}"/>`,
+      )
+      .join("")}`,
+  },
   garden_pond: {
     x: 300,
     y: 410,
@@ -150,16 +233,25 @@ const GARDEN: Record<string, { x: number; y: number; svg: string }> = {
 export function gardenItemSvg(id: string): string {
   const g = GARDEN[id];
   if (!g) return "";
-  const wide = id === "garden_daisies" || id === "garden_butterflies";
-  const vb = wide ? "-170 -30 340 60" : "-60 -75 120 110";
+  const vb =
+    id === "garden_rainbow"
+      ? "-160 -160 320 170"
+      : id === "garden_daisies" || id === "garden_butterflies"
+        ? "-170 -30 340 60"
+        : "-60 -75 120 110";
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${g.svg}</svg>`;
 }
 
+const BACK_ORDER = [
+  "garden_rainbow",
+  "garden_sunflowers",
+  "garden_tree",
+  "garden_butterflies",
+];
+
 export function sceneSvg(level: number, equipped: string[]): string {
   const garden = equipped.filter((id) => id in GARDEN);
-  const back = garden.filter((id) =>
-    ["garden_tree", "garden_butterflies"].includes(id),
-  );
+  const back = BACK_ORDER.filter((id) => garden.includes(id));
   const front = garden.filter((id) => !back.includes(id));
   const place = (id: string) =>
     `<g transform="translate(${GARDEN[id].x} ${GARDEN[id].y})">${GARDEN[id].svg}</g>`;
