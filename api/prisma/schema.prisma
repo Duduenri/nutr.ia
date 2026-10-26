@@ -275,6 +275,8 @@ model Plan {
   kind      String
   title     String
   content   String
+  previous  String?
+  structure Json?
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])

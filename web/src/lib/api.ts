@@ -239,6 +239,7 @@ export interface Plan {
   kind: "diet" | "workout" | "recipe";
   title: string;
   content: string;
+  previous: string | null;
   createdAt: string;
 }
 

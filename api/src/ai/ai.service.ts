@@ -281,6 +281,43 @@ const WeeklySummarySchema = z.object({
 
 export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;
 
+const WorkoutStructureSchema = z.object({
+  days: z.array(
+    z.object({
+      weekday: z
+        .enum(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'])
+        .nullable()
+        .describe('Dia da semana do treino, se o plano indicar'),
+      label: z.string().describe('Ex.: "Segunda", "Treino A"'),
+      focus: z.string().describe('Foco curto, ex.: "Peito e tríceps"'),
+      exercises: z.array(
+        z.object({
+          name: z.string().describe('Nome do exercício, sem séries/reps'),
+          sets: z.number().describe('Número de séries'),
+          reps: z.string().describe('Faixa de repetições, ex.: "8–12", "30 s"'),
+          repsTarget: z
+            .number()
+            .describe('Repetições sugeridas para preencher, ex.: 10'),
+          rest: z.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
+export type WorkoutStructure = z.infer<typeof WorkoutStructureSchema>;
+
+const RevisedPlanSchema = z.object({
+  plan: z.string().describe('O plano completo ajustado, em markdown'),
+  note: z
+    .string()
+    .describe(
+      'Recado curto para a pessoa (suposições ou o que mandar), ou vazio',
+    ),
+});
+
+export type RevisedPlan = z.infer<typeof RevisedPlanSchema>;
+
 export interface ActivityInput {
   name: string;
   minutes: number;
@@ -298,6 +335,7 @@ export interface CoachContext {
   history: string;
   exams?: string;
   material?: string;
+  training?: string;
 }
 
 function coachSystem(context: CoachContext): string {
@@ -318,6 +356,14 @@ ${context.today}
 
 ## Últimos dias
 ${context.history}${
+    context.training
+      ? `
+
+## Treinos registrados (últimos 30 dias, com cargas)
+${context.training}
+Essas são as cargas que ela já registrou: use-as ao falar de treino e progressão (ex.: sugerir aumentar 1–2,5 kg quando bater o topo das repetições) e não pergunte cargas que já estão aqui; pergunte só o que faltar.`
+      : ''
+  }${
     context.exams
       ? `
 
@@ -493,17 +539,36 @@ Se o texto não for uma receita, devolva o melhor que conseguir com o que foi en
     return response.output_parsed;
   }
 
-  revisePlan(
+  async revisePlan(
     context: CoachContext,
     plan: string,
     request: string,
-  ): Promise<string> {
-    return this.chat(context, [
-      {
-        role: 'user',
-        content: `Este é o meu plano atual:\n\n${plan}\n\nAjuste o plano assim: "${request}". Devolva o plano completo já ajustado, no mesmo formato, mantendo o que não precisa mudar.`,
-      },
-    ]);
+    kind: string,
+  ): Promise<RevisedPlan> {
+    const what =
+      kind === 'workout'
+        ? 'um plano de TREINO (musculação/cardio). Não inclua alimentação, metas de calorias ou refeições'
+        : kind === 'diet'
+          ? 'um plano ALIMENTAR. Não inclua treinos'
+          : 'um plano';
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: coachSystem(context),
+        input: `Este é ${what}. Meu plano atual:\n\n${plan}\n\nAjuste o plano assim: "${request}".
+Se o texto atual não for um plano completo, reconstrua o plano completo do mesmo tipo.
+Devolva em "plan" o plano COMPLETO já ajustado (todos os dias/refeições), no mesmo formato, mantendo o que não precisa mudar. Nunca devolva só uma pergunta ou um trecho no lugar do plano.
+Se faltar alguma informação (ex.: cargas), use as que estão nos treinos registrados ou faça uma suposição razoável, e explique em "note" o que assumiu ou o que eu posso te mandar para refinar. Se não houver nada a comentar, deixe "note" vazio.`,
+        text: { format: zodTextFormat(RevisedPlanSchema, 'revised') },
+      }),
+    );
+    if (!response.output_parsed?.plan.trim()) {
+      throw new UnprocessableEntityException(
+        'Não consegui ajustar o plano. Tente de novo.',
+      );
+    }
+    return response.output_parsed;
   }
 
   async extractLabs(
@@ -679,6 +744,27 @@ Ignore água, sal, e temperos básicos que quase todo mundo tem (a menos que o p
     if (!response.output_parsed) {
       throw new UnprocessableEntityException(
         'Não consegui montar a lista. Tente de novo.',
+      );
+    }
+    return response.output_parsed;
+  }
+
+  async structureWorkout(content: string): Promise<WorkoutStructure> {
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: `Converta um plano de treino em texto para dados estruturados por dia.
+Inclua apenas dias com exercícios de força/musculação (ignore aquecimento, alongamento e dias só de cardio ou descanso, mas mantenha exercícios como flexão e prancha).
+Se houver opções casa/academia, use a da academia. Mantenha os nomes dos exercícios como estão no plano, sem séries no nome.
+Não invente exercícios.`,
+        input: content,
+        text: { format: zodTextFormat(WorkoutStructureSchema, 'workout') },
+      }),
+    );
+    if (!response.output_parsed) {
+      throw new UnprocessableEntityException(
+        'Não consegui ler esse plano de treino',
       );
     }
     return response.output_parsed;

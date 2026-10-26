@@ -395,6 +395,32 @@ export class DiaryController {
     });
   }
 
+  @Patch('activities/:id')
+  async updateActivity(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: ActivityDto,
+  ) {
+    await this.assertOwn(
+      this.prisma.activity.findFirst({ where: { id, userId } }),
+    );
+    return this.prisma.activity.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        minutes: dto.minutes,
+        kcal: dto.kcal,
+        intensity: dto.intensity ?? null,
+        distanceKm: dto.distanceKm ?? null,
+        details: dto.details?.trim() || null,
+        exercises: dto.exercises?.length
+          ? (dto.exercises as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        date: parseDay(dto.date.slice(0, 10)),
+      },
+    });
+  }
+
   @Delete('activities/:id')
   async deleteActivity(@UserId() userId: string, @Param('id') id: string) {
     await this.assertOwn(

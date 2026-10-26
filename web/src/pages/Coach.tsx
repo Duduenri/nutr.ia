@@ -523,23 +523,50 @@ function PlanView({
   deleting: boolean;
 }) {
   const [request, setRequest] = useState("");
+  const [note, setNote] = useState<string | null>(null);
   const revise = useMutation({
     mutationFn: (text: string) =>
-      api.post<Plan>(`/coach/plans/${plan.id}/revise`, {
-        request: text,
-        today: today(),
-      }),
-    onSuccess: (p) => {
+      api.post<Plan & { note: string | null }>(
+        `/coach/plans/${plan.id}/revise`,
+        { request: text, today: today() },
+      ),
+    onSuccess: ({ note: n, ...p }) => {
       setRequest("");
+      setNote(n);
+      onRevised(p);
+    },
+  });
+  const undo = useMutation({
+    mutationFn: () => api.post<Plan>(`/coach/plans/${plan.id}/undo`),
+    onSuccess: (p) => {
+      setNote(null);
       onRevised(p);
     },
   });
 
   return (
     <div className="pb-4">
+      {note && (
+        <div className="prose-chat mb-3 rounded-2xl bg-sun/30 px-4 py-3 text-sm">
+          <Markdown>{`💬 ${note}`}</Markdown>
+        </div>
+      )}
       <div className={`prose-chat ${revise.isPending ? "opacity-40" : ""}`}>
         <Markdown>{plan.content}</Markdown>
       </div>
+      {plan.previous && (
+        <button
+          disabled={undo.isPending}
+          onClick={() => {
+            if (window.confirm("Voltar para a versão anterior do plano?"))
+              undo.mutate();
+          }}
+          className="mt-3 text-sm font-bold text-ink/50"
+        >
+          ↺ Desfazer última alteração
+        </button>
+      )}
+      <ErrorText error={undo.error} />
       <section className="mt-5 space-y-3 rounded-3xl bg-mint-50 p-4">
         <h3 className="font-extrabold">Ajustar este plano</h3>
         <p className="text-sm text-ink/60">{REVISE_HINT[plan.kind]}</p>

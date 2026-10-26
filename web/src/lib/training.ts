@@ -69,3 +69,38 @@ export function fromDraft(list: ExerciseDraft[]): Exercise[] {
     }))
     .filter((e) => e.name && e.sets.length);
 }
+
+const MUSCLE_RULES: [string, RegExp][] = [
+  [
+    "Ombros",
+    /crucifixo invertido|face pull|desenvolvimento|eleva[çc][ãa]o (lateral|frontal)|encolhimento|arnold/,
+  ],
+  [
+    "Pernas",
+    /hip thrust|agachamento|leg press|extensora|flexora|stiff|afundo|passada|panturrilha|eleva[çc][ãa]o p[ée]lvica|gl[úu]teo|abdu[çc]|adu[çc]|hack|b[úu]lgaro|terra|cadeira|mesa/,
+  ],
+  ["Tríceps", /tr[íi]ceps|franc[êe]s|mergulho|testa|coice/],
+  ["Bíceps", /b[íi]ceps|rosca/],
+  ["Peito", /supino|crucifixo|peck|voador|flex[ãa]o|crossover|cross over/],
+  [
+    "Costas",
+    /puxada|remada|pulldown|pull down|barra fixa|pullover|serrote|lombar/,
+  ],
+  ["Abdômen", /prancha|abdominal|abd[ôo]men|crunch|infra|obl[íi]quo/],
+];
+
+export const MUSCLE_ORDER = [
+  "Peito",
+  "Costas",
+  "Ombros",
+  "Bíceps",
+  "Tríceps",
+  "Pernas",
+  "Abdômen",
+  "Outros",
+];
+
+export function muscleGroup(name: string): string {
+  const n = name.toLowerCase();
+  return MUSCLE_RULES.find(([, re]) => re.test(n))?.[0] ?? "Outros";
+}

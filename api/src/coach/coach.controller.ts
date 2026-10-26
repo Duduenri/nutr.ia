@@ -6,8 +6,10 @@ import {
   Get,
   HttpCode,
   NotFoundException,
+  UnprocessableEntityException,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -25,7 +27,12 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { AiService, type ChatTurn } from '../ai/ai.service';
+import { Prisma } from '@prisma/client';
+import {
+  AiService,
+  type ChatTurn,
+  type WorkoutStructure,
+} from '../ai/ai.service';
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { PhotosService } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -217,12 +224,70 @@ export class CoachController {
     if (!plan) {
       throw new NotFoundException();
     }
-    const content = await this.ai.revisePlan(
+    const revised = await this.ai.revisePlan(
       await this.userContext.build(userId, dto.today),
       plan.content,
       dto.request,
+      plan.kind,
     );
-    return this.prisma.plan.update({ where: { id }, data: { content } });
+    if (revised.plan.trim().length < plan.content.length * 0.3) {
+      throw new UnprocessableEntityException(
+        'O ajuste veio incompleto, então mantive seu plano. Tente pedir de outro jeito.',
+      );
+    }
+    const updated = await this.prisma.plan.update({
+      where: { id },
+      data: {
+        content: revised.plan,
+        previous: plan.content,
+        structure: Prisma.JsonNull,
+      },
+    });
+    return { ...updated, note: revised.note.trim() || null };
+  }
+
+  @Post('plans/:id/undo')
+  @HttpCode(200)
+  async undoPlan(@UserId() userId: string, @Param('id') id: string) {
+    const plan = await this.prisma.plan.findFirst({ where: { id, userId } });
+    if (!plan?.previous) {
+      throw new NotFoundException('Não há versão anterior desse plano');
+    }
+    return this.prisma.plan.update({
+      where: { id },
+      data: {
+        content: plan.previous,
+        previous: plan.content,
+        structure: Prisma.JsonNull,
+      },
+    });
+  }
+
+  @Get('workout-plans')
+  async workoutPlans(@UserId() userId: string, @Query('id') id?: string) {
+    const plans = await this.prisma.plan.findMany({
+      where: { userId, kind: 'workout' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    const plan = plans.find((p) => p.id === id) ?? plans[0];
+    if (!plan) return { plans: [], selected: null };
+    let structure = plan.structure as WorkoutStructure | null;
+    if (!structure) {
+      structure = await this.ai.structureWorkout(plan.content);
+      await this.prisma.plan.update({
+        where: { id: plan.id },
+        data: { structure: structure },
+      });
+    }
+    return {
+      plans: plans.map((p) => ({
+        id: p.id,
+        title: p.title,
+        createdAt: p.createdAt,
+      })),
+      selected: { id: plan.id, title: plan.title, days: structure.days },
+    };
   }
 
   @Delete('plans/:id')

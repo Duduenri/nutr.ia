@@ -4,6 +4,11 @@ import { sumEntries } from '../diary/diary.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ageFrom } from '../profile/nutrition';
 
+interface Exercise {
+  name: string;
+  sets: { reps: number; kg: number }[];
+}
+
 const GOAL_LABEL = {
   LOSE: 'perder peso',
   MAINTAIN: 'manter peso',
@@ -26,6 +31,7 @@ export class UserContextService {
       fast,
       labs,
       documents,
+      activities,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.findMany({ where: { userId, date: today } }),
@@ -48,6 +54,10 @@ export class UserContextService {
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 3,
+      }),
+      this.prisma.activity.findMany({
+        where: { userId, date: { gte: addDays(today, -30), lte: today } },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       }),
     ]);
 
@@ -117,12 +127,34 @@ export class UserContextService {
       .join('\n\n')
       .slice(0, 60_000);
 
+    const training = activities
+      .map((a) => {
+        const exercises = (a.exercises as Exercise[] | null) ?? [];
+        return [
+          `${formatDay(a.date)}: ${a.name}, ${a.minutes} min, ${a.kcal} kcal`,
+          a.distanceKm &&
+            `${a.distanceKm} km (${Math.round((a.minutes / a.distanceKm) * 10) / 10} min/km)`,
+          exercises.length &&
+            exercises
+              .map(
+                (e) =>
+                  `${e.name} ${e.sets.map((s) => `${s.reps}x${s.kg}kg`).join(' ')}`,
+              )
+              .join('; '),
+          a.details && `obs: ${a.details.slice(0, 300).replace(/\n+/g, ' ')}`,
+        ]
+          .filter(Boolean)
+          .join(' | ');
+      })
+      .join('\n');
+
     return {
       profile,
       today: todayText,
       history,
       exams: exams || undefined,
       material: material || undefined,
+      training: training || undefined,
     };
   }
 }

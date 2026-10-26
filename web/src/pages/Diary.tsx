@@ -37,6 +37,7 @@ import {
   exerciseSummary,
   fromDraft,
   STRENGTH_SPORTS,
+  toDraft,
   type ExerciseDraft,
   formatDuration as formatTrainingTime,
   formatKm,
@@ -836,6 +837,41 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
   const knownExercises = [
     ...new Set(pastStrength.flatMap((a) => a.exercises!.map((e) => e.name))),
   ];
+  const [planId, setPlanId] = useState<string | null>(null);
+  const { data: workoutPlans, isFetching: loadingPlan } = useQuery({
+    queryKey: ["workout-plans", planId],
+    queryFn: () =>
+      api.get<WorkoutPlans>(
+        `/coach/workout-plans${planId ? `?id=${planId}` : ""}`,
+      ),
+    enabled: open && isStrength,
+    staleTime: 5 * 60_000,
+  });
+  const [planDay, setPlanDay] = useState<string | null>(null);
+  const lastKg = (name: string) => {
+    const k = name.trim().toLowerCase();
+    for (const a of [...pastStrength].reverse()) {
+      const e = a.exercises!.find((x) => x.name.trim().toLowerCase() === k);
+      const kg = e ? Math.max(...e.sets.map((s) => s.kg)) : 0;
+      if (kg > 0) return String(kg);
+    }
+    return "";
+  };
+  const pickPlanDay = (day: WorkoutPlan["days"][number]) => {
+    setPlanDay(day.label);
+    setExercises(
+      day.exercises.map((e) => ({
+        name: e.name,
+        sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
+          reps: String(e.repsTarget),
+          kg: lastKg(e.name),
+        })),
+      })),
+    );
+    if (!form.details.trim()) {
+      setForm({ ...form, details: `${day.label} — ${day.focus}` });
+    }
+  };
   const lastWorkout =
     [...pastStrength].reverse().find((a) => a.name === form.name)?.exercises ??
     null;
@@ -853,11 +889,27 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     }
     setForm(next);
   };
+  const [editingId, setEditingId] = useState<string | null>(null);
   const close = () => {
     setOpen(false);
     setForm(EMPTY_ACTIVITY);
     setExplain(null);
     setExercises([]);
+    setPlanDay(null);
+    setEditingId(null);
+  };
+  const startEdit = (a: Diary["activities"][number]) => {
+    setForm({
+      name: a.name,
+      distance: a.distanceKm ? String(a.distanceKm).replace(".", ",") : "",
+      minutes: String(a.minutes),
+      intensity: a.intensity ?? "MODERATE",
+      details: a.details ?? "",
+      kcal: String(a.kcal),
+    });
+    setExercises(toDraft(a.exercises ?? []));
+    setEditingId(a.id);
+    setOpen(true);
   };
 
   const distanceKm = parseFloat(form.distance.replace(",", ".")) || 0;
@@ -883,12 +935,12 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     },
   });
   const add = useMutation({
-    mutationFn: () =>
-      api.post("/activities", {
-        ...payload(),
-        date,
-        kcal: parseInt(form.kcal, 10),
-      }),
+    mutationFn: () => {
+      const body = { ...payload(), date, kcal: parseInt(form.kcal, 10) };
+      return editingId
+        ? api.patch(`/activities/${editingId}`, body)
+        : api.post("/activities", body);
+    },
     onSuccess: () => {
       invalidate();
       close();
@@ -970,13 +1022,25 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
                 {a.details}
               </p>
             )}
+            {expanded === a.id && (
+              <button
+                onClick={() => startEdit(a)}
+                className="mt-2 text-sm font-bold text-mint-500"
+              >
+                ✏️ Editar
+              </button>
+            )}
           </li>
         ))}
       </ul>
       <Button className="w-full" onClick={() => setOpen(true)}>
         Adicionar atividade
       </Button>
-      <Sheet open={open} onClose={close} title="Nova atividade">
+      <Sheet
+        open={open}
+        onClose={close}
+        title={editingId ? "Editar atividade" : "Nova atividade"}
+      >
         <div className="space-y-4 pb-4">
           <div className="grid grid-cols-4 gap-2">
             {ACTIVITY_PRESETS.map((p) => (
@@ -1037,6 +1101,18 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
               )}
             </Field>
           )}
+          {isStrength && workoutPlans && (
+            <WorkoutPlanDays
+              data={workoutPlans}
+              loading={loadingPlan}
+              selected={planDay}
+              onPlan={(id) => {
+                setPlanId(id);
+                setPlanDay(null);
+              }}
+              onPick={pickPlanDay}
+            />
+          )}
           {isStrength && (
             <ExercisesEditor
               value={exercises}
@@ -1096,6 +1172,124 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
         </div>
       </Sheet>
     </Card>
+  );
+}
+
+interface WorkoutPlan {
+  id: string;
+  title: string;
+  days: {
+    weekday: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN" | null;
+    label: string;
+    focus: string;
+    exercises: {
+      name: string;
+      sets: number;
+      reps: string;
+      repsTarget: number;
+    }[];
+  }[];
+}
+
+interface WorkoutPlans {
+  plans: { id: string; title: string; createdAt: string }[];
+  selected: WorkoutPlan | null;
+}
+
+const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+function WorkoutPlanDays({
+  data,
+  loading,
+  selected,
+  onPlan,
+  onPick,
+}: {
+  data: WorkoutPlans;
+  loading: boolean;
+  selected: string | null;
+  onPlan: (id: string) => void;
+  onPick: (day: WorkoutPlan["days"][number]) => void;
+}) {
+  const plan = data.selected;
+  if (!plan || plan.days.length === 0) {
+    return (
+      <p className="rounded-2xl bg-soft px-4 py-3 text-sm text-ink/60">
+        📋 Tem um plano de treino? Crie no{" "}
+        <b>Coach → Planos → Plano de treino</b> e aqui é só escolher o dia pra
+        já vir com os exercícios.
+      </p>
+    );
+  }
+  const today = WEEKDAYS[new Date().getDay()];
+  return (
+    <div>
+      <span className="mb-1 block text-sm font-semibold text-ink/70">
+        📋 Usar um plano de treino (opcional)
+      </span>
+      {data.plans.length > 1 && (
+        <div className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {data.plans.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onPlan(p.id)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
+                p.id === plan.id ? "bg-ink text-white" : "bg-soft"
+              }`}
+            >
+              {p.title} ·{" "}
+              {new Date(p.createdAt).toLocaleDateString("pt-BR", {
+                day: "2-digit",
+                month: "2-digit",
+              })}
+            </button>
+          ))}
+        </div>
+      )}
+      <span className="mb-1 block text-xs font-bold text-ink/50">
+        Qual dia você treinou?{loading ? " Carregando…" : ""}
+      </span>
+      <div className="grid grid-cols-2 gap-2">
+        {plan.days.map((d) => {
+          const isToday = d.weekday === today;
+          const on = selected === d.label;
+          return (
+            <button
+              key={d.label}
+              onClick={() => onPick(d)}
+              className={`rounded-2xl px-3 py-2 text-left ${
+                on
+                  ? "bg-ink text-white"
+                  : isToday
+                    ? "bg-mint-50 ring-2 ring-mint-400"
+                    : "bg-soft"
+              }`}
+            >
+              <span className="block text-sm font-extrabold">
+                {d.label}
+                {isToday && !on && (
+                  <span className="text-xs font-bold text-mint-500">
+                    {" "}
+                    · hoje
+                  </span>
+                )}
+              </span>
+              <span
+                className={`block truncate text-xs ${on ? "text-white/70" : "text-ink/50"}`}
+              >
+                {d.focus} · {d.exercises.length} exercícios
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {selected && (
+        <p className="mt-1 text-xs text-ink/50">
+          Já preenchi com o último peso que você usou em cada exercício. Ajuste
+          as cargas e as repetições que fez.
+        </p>
+      )}
+    </div>
   );
 }
 
