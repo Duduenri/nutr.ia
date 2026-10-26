@@ -298,13 +298,33 @@ function Plans() {
     setAsking(null);
     setOpen(plan);
   };
+  const refreshPlans = () => {
+    void qc.invalidateQueries({ queryKey: ["plans"] });
+    void qc.invalidateQueries({ queryKey: ["workout-plans"] });
+  };
   const remove = useMutation({
     mutationFn: (id: string) => api.del(`/coach/plans/${id}`),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["plans"] });
+      refreshPlans();
       setOpen(null);
     },
   });
+  const rename = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) =>
+      api.patch<Plan>(`/coach/plans/${id}`, { title }),
+    onSuccess: (p) => {
+      refreshPlans();
+      setOpen((cur) => (cur?.id === p.id ? { ...cur, title: p.title } : cur));
+    },
+  });
+  const askRename = (p: Plan) => {
+    const title = window.prompt("Novo nome do plano:", p.title)?.trim();
+    if (title && title !== p.title) rename.mutate({ id: p.id, title });
+  };
+  const askRemove = (p: Plan) => {
+    if (window.confirm(`Apagar o plano "${p.title}"? Não dá pra desfazer.`))
+      remove.mutate(p.id);
+  };
 
   return (
     <div className="space-y-4 px-4 pt-4">
@@ -331,20 +351,38 @@ function Plans() {
           Gere um plano acima — ele fica salvo aqui.
         </p>
       )}
+      <ErrorText error={rename.error ?? remove.error} />
       <ul className="space-y-2">
         {plans.map((p) => (
-          <li key={p.id}>
+          <li
+            key={p.id}
+            className="flex items-center gap-1 rounded-2xl bg-white py-1 pl-4 pr-1 shadow-card"
+          >
             <button
               onClick={() => setOpen(p)}
-              className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left shadow-card"
+              className="min-w-0 flex-1 py-2 text-left"
             >
-              <span className="font-bold">
+              <span className="block truncate font-bold">
                 {PLAN_KINDS.find((k) => k.kind === p.kind)?.icon ?? "👩‍🍳"}{" "}
                 {p.title}
               </span>
-              <span className="text-sm text-ink/50">
+              <span className="text-xs text-ink/50">
                 {new Date(p.createdAt).toLocaleDateString("pt-BR")}
               </span>
+            </button>
+            <button
+              onClick={() => askRename(p)}
+              className="grid h-10 w-10 place-items-center rounded-full text-lg active:bg-soft"
+              aria-label="Renomear plano"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={() => askRemove(p)}
+              className="grid h-10 w-10 place-items-center rounded-full text-lg active:bg-soft"
+              aria-label="Apagar plano"
+            >
+              🗑️
             </button>
           </li>
         ))}
@@ -366,7 +404,8 @@ function Plans() {
               void qc.invalidateQueries({ queryKey: ["plans"] });
               setOpen(p);
             }}
-            onDelete={() => remove.mutate(open.id)}
+            onDelete={() => askRemove(open)}
+            onRename={() => askRename(open)}
             deleting={remove.isPending}
           />
         )}
@@ -515,11 +554,13 @@ function PlanView({
   plan,
   onRevised,
   onDelete,
+  onRename,
   deleting,
 }: {
   plan: Plan;
   onRevised: (p: Plan) => void;
   onDelete: () => void;
+  onRename: () => void;
   deleting: boolean;
 }) {
   const [request, setRequest] = useState("");
@@ -598,9 +639,12 @@ function PlanView({
           {revise.isPending ? "Ajustando..." : "Ajustar com IA"}
         </Button>
       </section>
+      <Button variant="soft" className="mt-4 w-full" onClick={onRename}>
+        ✏️ Renomear plano
+      </Button>
       <Button
         variant="danger"
-        className="mt-4 w-full"
+        className="mt-2 w-full"
         loading={deleting}
         onClick={onDelete}
       >

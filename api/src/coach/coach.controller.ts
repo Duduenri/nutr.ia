@@ -8,6 +8,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -88,6 +89,13 @@ class PlanDto extends QuestionsDto {
   @ValidateNested({ each: true })
   @Type(() => AnswerDto)
   answers?: AnswerDto[];
+}
+
+class RenamePlanDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  title!: string;
 }
 
 class ReviseDto {
@@ -244,6 +252,20 @@ export class CoachController {
       },
     });
     return { ...updated, note: revised.note.trim() || null };
+  }
+
+  @Patch('plans/:id')
+  async renamePlan(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: RenamePlanDto,
+  ) {
+    const plan = await this.prisma.plan.findFirst({ where: { id, userId } });
+    if (!plan) throw new NotFoundException();
+    return this.prisma.plan.update({
+      where: { id },
+      data: { title: dto.title.trim() },
+    });
   }
 
   @Post('plans/:id/undo')
