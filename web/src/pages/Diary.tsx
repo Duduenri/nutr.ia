@@ -9,6 +9,7 @@ import {
   fmt,
   inputClass,
   ProgressBar,
+  Segmented,
   Sheet,
   Spinner,
 } from "../components/ui";
@@ -22,7 +23,12 @@ import {
   type MealType,
 } from "../lib/api";
 import { ExerciseEquivalent } from "../components/ExerciseEquivalent";
-import { EXERCISES, exerciseMinutes, useWeightKg } from "../lib/exercise";
+import {
+  activityKcal,
+  EXERCISES,
+  exerciseMinutes,
+  useWeightKg,
+} from "../lib/exercise";
 import { dayLabel, shiftDay, today } from "../lib/date";
 import {
   formatDuration,
@@ -176,6 +182,7 @@ function Ring({ value, max }: { value: number; max: number }) {
 
 function Summary({ diary }: { diary: Diary }) {
   const [showMicros, setShowMicros] = useState(false);
+  const [micro, setMicro] = useState<string | null>(null);
   const { totals, targets, burned } = diary;
   const remaining = Math.round(targets.kcal - totals.kcal + burned);
   const macros = [
@@ -258,16 +265,110 @@ function Summary({ diary }: { diary: Diary }) {
       {showMicros && (
         <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 rounded-2xl bg-white/60 p-3 text-sm">
           {Object.entries(MICRO_LABEL).map(([key, { label, unit }]) => (
-            <div key={key} className="flex justify-between">
-              <span className="text-ink/70">{label}</span>
+            <button
+              key={key}
+              onClick={() => setMicro(key)}
+              className="flex justify-between text-left"
+            >
+              <span className="text-ink/70 underline decoration-ink/20 underline-offset-2">
+                {label}
+              </span>
               <span className="font-bold">
                 {fmt(totals.micros[key] ?? 0)} {unit}
               </span>
-            </div>
+            </button>
           ))}
+          <p className="col-span-2 mt-1 text-center text-xs text-ink/40">
+            Toque pra ver de onde veio
+          </p>
         </div>
       )}
+      <MicroSheet diary={diary} micro={micro} onClose={() => setMicro(null)} />
     </div>
+  );
+}
+
+function MicroSheet({
+  diary,
+  micro,
+  onClose,
+}: {
+  diary: Diary;
+  micro: string | null;
+  onClose: () => void;
+}) {
+  const info = micro ? MICRO_LABEL[micro] : null;
+  const total = micro ? (diary.totals.micros[micro] ?? 0) : 0;
+  const sources = micro
+    ? diary.meals
+        .flatMap((m) =>
+          m.entries.map((e) => ({ ...e, amount: e.micros?.[micro] ?? 0 })),
+        )
+        .filter((e) => e.amount > 0)
+        .sort((a, b) => b.amount - a.amount)
+    : [];
+  const pctOfRef = info ? Math.round((total / info.ref) * 100) : 0;
+
+  return (
+    <Sheet open={micro !== null} onClose={onClose} title={info?.label}>
+      {info && (
+        <div className="space-y-4 pb-6">
+          <div className="rounded-2xl bg-soft p-4">
+            <div className="flex items-baseline justify-between">
+              <span className="text-3xl font-extrabold">
+                {fmt(total, total < 10 ? 1 : 0)} {info.unit}
+              </span>
+              <span className="text-sm font-bold text-ink/60">
+                {pctOfRef}% {info.limit ? "do limite" : "da referência"}
+              </span>
+            </div>
+            <ProgressBar
+              value={total}
+              max={info.ref}
+              color={
+                info.limit && total > info.ref ? "bg-peach-500" : "bg-mint-500"
+              }
+              className="mt-2 h-2"
+            />
+            <p className="mt-2 text-xs text-ink/50">
+              {info.limit
+                ? `Limite diário para adultos: até ${fmt(info.ref)} ${info.unit}.`
+                : `Referência diária para adultos: ${fmt(info.ref)} ${info.unit}.`}{" "}
+              Sua equipe pode ter passado outra meta.
+            </p>
+          </div>
+          {sources.length === 0 ? (
+            <p className="text-center text-sm text-ink/60">
+              Nenhum alimento registrado hoje tem {info.label.toLowerCase()}.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {sources.map((e) => (
+                <li key={e.id} className="rounded-2xl bg-soft px-3 py-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-bold">{e.name}</span>
+                    <span className="shrink-0 font-extrabold">
+                      {fmt(e.amount, e.amount < 10 ? 1 : 0)} {info.unit}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ProgressBar
+                      value={e.amount}
+                      max={total}
+                      className="h-1.5 bg-white"
+                    />
+                    <span className="w-28 shrink-0 text-right text-xs text-ink/50">
+                      {MEAL_EMOJI[e.meal]} {fmt(e.grams)} g ·{" "}
+                      {Math.round((e.amount / total) * 100)}%
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -523,34 +624,135 @@ function Water({ diary, date }: { diary: Diary; date: string }) {
   );
 }
 
-const ACTIVITY_PRESETS = [
-  { name: "Caminhada", kcalPerMin: 4.5, emoji: "🚶‍♀️" },
-  { name: "Corrida", kcalPerMin: 10, emoji: "🏃‍♀️" },
-  { name: "Musculação", kcalPerMin: 6, emoji: "🏋️‍♀️" },
-  { name: "Bicicleta", kcalPerMin: 7, emoji: "🚴‍♀️" },
-  { name: "Dança", kcalPerMin: 6, emoji: "💃" },
-  { name: "Pilates", kcalPerMin: 4, emoji: "🧘‍♀️" },
-  { name: "Natação", kcalPerMin: 8, emoji: "🏊‍♀️" },
-  { name: "Funcional", kcalPerMin: 8, emoji: "🤸‍♀️" },
+type Intensity = "LIGHT" | "MODERATE" | "VIGOROUS";
+
+const INTENSITY_LABEL: Record<Intensity, string> = {
+  LIGHT: "Leve",
+  MODERATE: "Moderada",
+  VIGOROUS: "Intensa",
+};
+
+const ACTIVITY_PRESETS: {
+  name: string;
+  emoji: string;
+  met: Record<Intensity, number>;
+  hint: string;
+}[] = [
+  {
+    name: "Caminhada",
+    emoji: "🚶‍♀️",
+    met: { LIGHT: 2.8, MODERATE: 3.5, VIGOROUS: 5 },
+    hint: "Ex.: 4 km, ritmo forte, com subida",
+  },
+  {
+    name: "Corrida",
+    emoji: "🏃‍♀️",
+    met: { LIGHT: 7, MODERATE: 9.8, VIGOROUS: 11.5 },
+    hint: "Ex.: 5 km em 35 min, intervalado",
+  },
+  {
+    name: "Musculação",
+    emoji: "🏋️‍♀️",
+    met: { LIGHT: 3.5, MODERATE: 5, VIGOROUS: 6 },
+    hint: "Ex.: agachamento 4x12 20 kg, leg press 4x10 80 kg, descanso 1 min",
+  },
+  {
+    name: "Bicicleta",
+    emoji: "🚴‍♀️",
+    met: { LIGHT: 4, MODERATE: 6.8, VIGOROUS: 10 },
+    hint: "Ex.: 15 km na rua, bike ergométrica carga 6",
+  },
+  {
+    name: "Dança",
+    emoji: "💃",
+    met: { LIGHT: 4.5, MODERATE: 5.5, VIGOROUS: 7.8 },
+    hint: "Ex.: aula de zumba, forró",
+  },
+  {
+    name: "Pilates",
+    emoji: "🧘‍♀️",
+    met: { LIGHT: 2.8, MODERATE: 3, VIGOROUS: 3.8 },
+    hint: "Ex.: pilates de aparelho, solo",
+  },
+  {
+    name: "Natação",
+    emoji: "🏊‍♀️",
+    met: { LIGHT: 5.8, MODERATE: 8, VIGOROUS: 9.8 },
+    hint: "Ex.: 1 km nado livre, hidroginástica",
+  },
+  {
+    name: "Funcional",
+    emoji: "🤸‍♀️",
+    met: { LIGHT: 4, MODERATE: 6, VIGOROUS: 8 },
+    hint: "Ex.: circuito com burpee, corda e kettlebell",
+  },
 ];
+
+const EMPTY_ACTIVITY = {
+  name: "",
+  minutes: "30",
+  intensity: "MODERATE" as Intensity,
+  details: "",
+  kcal: "",
+};
+
+interface ActivityEstimate {
+  kcal: number;
+  intensity: Intensity;
+  summary: string;
+}
 
 function Activities({ diary, date }: { diary: Diary; date: string }) {
   const invalidate = useInvalidateDay();
+  const weightKg = useWeightKg();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", minutes: "30", kcal: "" });
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [form, setForm] = useState(EMPTY_ACTIVITY);
+  const [explain, setExplain] = useState<string | null>(null);
 
+  const preset = ACTIVITY_PRESETS.find((p) => p.name === form.name);
+  const update = (patch: Partial<typeof EMPTY_ACTIVITY>) => {
+    const next = { ...form, ...patch };
+    const p = ACTIVITY_PRESETS.find((x) => x.name === next.name);
+    const minutes = parseInt(next.minutes, 10) || 0;
+    if (p && !("kcal" in patch)) {
+      next.kcal = String(
+        activityKcal(minutes, weightKg, p.met[next.intensity]),
+      );
+      setExplain(null);
+    }
+    setForm(next);
+  };
+  const close = () => {
+    setOpen(false);
+    setForm(EMPTY_ACTIVITY);
+    setExplain(null);
+  };
+
+  const payload = () => ({
+    name: form.name.trim(),
+    minutes: parseInt(form.minutes, 10),
+    intensity: form.intensity,
+    details: form.details.trim() || undefined,
+  });
+  const estimate = useMutation({
+    mutationFn: () =>
+      api.post<ActivityEstimate>("/activities/estimate", payload()),
+    onSuccess: (r) => {
+      setForm({ ...form, kcal: String(r.kcal), intensity: r.intensity });
+      setExplain(r.summary);
+    },
+  });
   const add = useMutation({
     mutationFn: () =>
       api.post("/activities", {
+        ...payload(),
         date,
-        name: form.name,
-        minutes: parseInt(form.minutes, 10),
         kcal: parseInt(form.kcal, 10),
       }),
     onSuccess: () => {
       invalidate();
-      setOpen(false);
-      setForm({ name: "", minutes: "30", kcal: "" });
+      close();
     },
   });
   const remove = useMutation({
@@ -558,14 +760,7 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     onSuccess: invalidate,
   });
 
-  const pickPreset = (p: (typeof ACTIVITY_PRESETS)[number]) => {
-    const minutes = parseInt(form.minutes, 10) || 30;
-    setForm({
-      name: p.name,
-      minutes: String(minutes),
-      kcal: String(Math.round(minutes * p.kcalPerMin)),
-    });
-  };
+  const valid = form.name.trim() && parseInt(form.minutes, 10) > 0;
 
   return (
     <Card>
@@ -588,37 +783,56 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
           </li>
         )}
         {diary.activities.map((a) => (
-          <li
-            key={a.id}
-            className="flex items-center justify-between rounded-2xl bg-soft px-3 py-2"
-          >
-            <span>
-              <span className="font-bold">{a.name}</span>
-              <span className="text-sm text-ink/60"> · {a.minutes} min</span>
-            </span>
-            <span className="flex items-center gap-3">
-              <span className="font-bold">{a.kcal} kcal</span>
+          <li key={a.id} className="rounded-2xl bg-soft px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
               <button
-                onClick={() => remove.mutate(a.id)}
-                className="text-ink/40"
-                aria-label="Remover"
+                className="min-w-0 flex-1 text-left"
+                onClick={() => setExpanded(expanded === a.id ? null : a.id)}
               >
-                ✕
+                <span className="font-bold">
+                  {ACTIVITY_PRESETS.find((p) => p.name === a.name)?.emoji}{" "}
+                  {a.name}
+                </span>
+                <span className="text-sm text-ink/60">
+                  {" "}
+                  · {a.minutes} min
+                  {a.intensity && ` · ${INTENSITY_LABEL[a.intensity]}`}
+                </span>
+                {a.details && expanded !== a.id && (
+                  <span className="block truncate text-xs text-ink/50">
+                    {a.details}
+                  </span>
+                )}
               </button>
-            </span>
+              <span className="flex shrink-0 items-center gap-3">
+                <span className="font-bold">{a.kcal} kcal</span>
+                <button
+                  onClick={() => remove.mutate(a.id)}
+                  className="text-ink/40"
+                  aria-label="Remover"
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+            {a.details && expanded === a.id && (
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink/70">
+                {a.details}
+              </p>
+            )}
           </li>
         ))}
       </ul>
       <Button className="w-full" onClick={() => setOpen(true)}>
         Adicionar atividade
       </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Nova atividade">
+      <Sheet open={open} onClose={close} title="Nova atividade">
         <div className="space-y-4 pb-4">
           <div className="grid grid-cols-4 gap-2">
             {ACTIVITY_PRESETS.map((p) => (
               <button
                 key={p.name}
-                onClick={() => pickPreset(p)}
+                onClick={() => update({ name: p.name })}
                 className={`rounded-2xl border-2 py-2 text-xs font-bold ${form.name === p.name ? "border-mint-500 bg-mint-50" : "border-slate-100"}`}
               >
                 <div className="text-2xl">{p.emoji}</div>
@@ -626,52 +840,80 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
               </button>
             ))}
           </div>
-          <Field label="Nome">
+          <Field label="Atividade">
             <input
               className={inputClass}
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ou digite outra: vôlei, crossfit, faxina…"
+              onChange={(e) => update({ name: e.target.value })}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[6rem_1fr] gap-3">
             <Field label="Minutos">
               <input
                 className={inputClass}
                 inputMode="numeric"
                 value={form.minutes}
-                onChange={(e) => {
-                  const minutes = e.target.value;
-                  const preset = ACTIVITY_PRESETS.find(
-                    (p) => p.name === form.name,
-                  );
-                  setForm({
-                    ...form,
-                    minutes,
-                    kcal: preset
-                      ? String(
-                          Math.round(
-                            (parseInt(minutes, 10) || 0) * preset.kcalPerMin,
-                          ),
-                        )
-                      : form.kcal,
-                  });
-                }}
+                onChange={(e) => update({ minutes: e.target.value })}
               />
             </Field>
-            <Field label="Calorias gastas">
-              <input
-                className={inputClass}
-                inputMode="numeric"
-                value={form.kcal}
-                onChange={(e) => setForm({ ...form, kcal: e.target.value })}
+            <div>
+              <span className="mb-1 block text-sm font-semibold text-ink/70">
+                Intensidade
+              </span>
+              <Segmented
+                options={(Object.keys(INTENSITY_LABEL) as Intensity[]).map(
+                  (value) => ({ value, label: INTENSITY_LABEL[value] }),
+                )}
+                value={form.intensity}
+                onChange={(intensity) => update({ intensity })}
               />
-            </Field>
+            </div>
           </div>
-          <ErrorText error={add.error} />
+          <Field label="O que você fez? (opcional)">
+            <textarea
+              className={`${inputClass} min-h-24`}
+              value={form.details}
+              placeholder={
+                preset?.hint ?? "Exercícios, séries, cargas, distância, ritmo…"
+              }
+              onChange={(e) => setForm({ ...form, details: e.target.value })}
+            />
+          </Field>
+          <Button
+            variant="soft"
+            className="w-full"
+            loading={estimate.isPending}
+            disabled={!valid}
+            onClick={() => estimate.mutate()}
+          >
+            ✨ Calcular calorias com a IA
+          </Button>
+          {explain && (
+            <p className="rounded-2xl bg-mint-50 px-4 py-3 text-sm">
+              {explain}
+            </p>
+          )}
+          <Field label="Calorias gastas">
+            <input
+              className={inputClass}
+              inputMode="numeric"
+              value={form.kcal}
+              onChange={(e) => update({ kcal: e.target.value })}
+            />
+          </Field>
+          {preset && !explain && (
+            <p className="-mt-2 text-xs text-ink/50">
+              Calculado pro seu peso ({fmt(weightKg, 1)} kg) e intensidade.
+              Descreveu o treino? Toque em “Calcular com a IA” pra uma conta
+              mais certinha.
+            </p>
+          )}
+          <ErrorText error={estimate.error ?? add.error} />
           <Button
             className="w-full"
             loading={add.isPending}
-            disabled={!form.name || !form.kcal || !form.minutes}
+            disabled={!valid || !form.kcal}
             onClick={() => add.mutate()}
           >
             Salvar atividade

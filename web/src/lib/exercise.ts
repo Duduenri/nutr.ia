@@ -23,6 +23,10 @@ export function exerciseMinutes(kcal: number, weightKg: number, met: number) {
   return Math.max(1, Math.round(kcal / ((met * 3.5 * weightKg) / 200)));
 }
 
+export function activityKcal(minutes: number, weightKg: number, met: number) {
+  return Math.round((minutes * met * 3.5 * weightKg) / 200);
+}
+
 export function useWeightKg(): number {
   const { data } = useProfile();
   return data?.currentWeightKg ?? data?.startWeightKg ?? 70;

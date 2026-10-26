@@ -4,12 +4,13 @@ import {
   Delete,
   Get,
   NotFoundException,
+  HttpCode,
   Param,
   Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { EntrySource, MealType, Prisma } from '@prisma/client';
+import { EntrySource, Intensity, MealType, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -27,7 +28,9 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { AiService } from '../ai/ai.service';
 import { AuthGuard, UserId } from '../auth/auth.guard';
+import { ageFrom } from '../profile/nutrition';
 import { parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiaryService } from './diary.service';
@@ -118,17 +121,30 @@ class WaterDto {
   ml!: number;
 }
 
-class ActivityDto {
-  @IsDateString()
-  date!: string;
-
+class EstimateActivityDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(80)
   name!: string;
 
   @IsInt()
   @Min(1)
+  @Max(600)
   minutes!: number;
+
+  @IsOptional()
+  @IsEnum(Intensity)
+  intensity?: Intensity;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  details?: string;
+}
+
+class ActivityDto extends EstimateActivityDto {
+  @IsDateString()
+  date!: string;
 
   @IsInt()
   @Min(0)
@@ -161,6 +177,7 @@ export class DiaryController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly diary: DiaryService,
+    private readonly ai: AiService,
   ) {}
 
   @Get('diary/:date')
@@ -259,7 +276,34 @@ export class DiaryController {
   @Post('activities')
   addActivity(@UserId() userId: string, @Body() dto: ActivityDto) {
     return this.prisma.activity.create({
-      data: { ...dto, userId, date: parseDay(dto.date.slice(0, 10)) },
+      data: {
+        ...dto,
+        details: dto.details?.trim() || null,
+        userId,
+        date: parseDay(dto.date.slice(0, 10)),
+      },
+    });
+  }
+
+  @Post('activities/estimate')
+  @HttpCode(200)
+  async estimateActivity(
+    @UserId() userId: string,
+    @Body() dto: EstimateActivityDto,
+  ) {
+    const [user, weight] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      this.prisma.weightLog.findFirst({
+        where: { userId },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      }),
+    ]);
+    return this.ai.estimateActivity({
+      ...dto,
+      details: dto.details?.trim(),
+      weightKg: weight?.kg ?? user.startWeightKg,
+      sex: user.sex,
+      age: user.birthDate ? ageFrom(user.birthDate) : null,
     });
   }
 

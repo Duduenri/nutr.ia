@@ -230,6 +230,28 @@ const PrescriptionSchema = z.object({
 
 export type Prescription = z.infer<typeof PrescriptionSchema>;
 
+const ActivityEstimateSchema = z.object({
+  kcal: z.number().describe('Gasto calórico total da sessão, em kcal'),
+  intensity: z.enum(['LIGHT', 'MODERATE', 'VIGOROUS']),
+  summary: z
+    .string()
+    .describe(
+      'Uma ou duas frases curtas explicando a conta, ex.: "Musculação moderada (~5 MET) × 62 kg × 1 h ≈ 310 kcal"',
+    ),
+});
+
+export type ActivityEstimate = z.infer<typeof ActivityEstimateSchema>;
+
+export interface ActivityInput {
+  name: string;
+  minutes: number;
+  intensity?: 'LIGHT' | 'MODERATE' | 'VIGOROUS';
+  details?: string;
+  weightKg: number | null;
+  sex: 'FEMALE' | 'MALE' | null;
+  age: number | null;
+}
+
 export interface CoachContext {
   profile: string;
   today: string;
@@ -555,6 +577,45 @@ Nunca invente itens que não estejam na receita.`;
       );
     }
     return response.output_parsed;
+  }
+
+  async estimateActivity(input: ActivityInput): Promise<ActivityEstimate> {
+    const instructions = `Você estima o gasto calórico de atividades físicas.
+Use METs do Compendium of Physical Activities: kcal = MET × peso (kg) × horas. Se o peso não for informado, use 65 kg.
+Escolha o MET pela atividade e pelos detalhes: em musculação considere volume, cargas, descanso entre séries e se foi circuito; em corrida/bike considere ritmo, velocidade ou distância se houver; em aulas considere o estilo.
+Se a pessoa disser a intensidade, respeite-a, mas ajuste se os detalhes indicarem claramente outra.
+Seja conservadora: apps e relógios costumam superestimar. Arredonde para inteiro.`;
+    const ask = [
+      `Atividade: ${input.name}`,
+      `Duração: ${input.minutes} min`,
+      input.intensity && `Intensidade dita: ${input.intensity}`,
+      input.details && `O que foi feito: ${input.details}`,
+      `Peso: ${input.weightKg ? `${input.weightKg} kg` : 'não informado'}`,
+      input.sex && `Sexo: ${input.sex === 'FEMALE' ? 'feminino' : 'masculino'}`,
+      input.age && `Idade: ${input.age} anos`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions,
+        input: ask,
+        text: {
+          format: zodTextFormat(ActivityEstimateSchema, 'activity'),
+        },
+      }),
+    );
+    if (!response.output_parsed) {
+      throw new UnprocessableEntityException(
+        'Não consegui estimar essa atividade. Tente descrever de outro jeito.',
+      );
+    }
+    return {
+      ...response.output_parsed,
+      kcal: Math.max(0, Math.round(response.output_parsed.kcal)),
+    };
   }
 
   private async call<T>(fn: () => Promise<T>): Promise<T> {

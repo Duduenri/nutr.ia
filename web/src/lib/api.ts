@@ -134,7 +134,14 @@ export interface Diary {
     entries: Entry[];
   }[];
   water: { ml: number; logs: { id: string; ml: number }[] };
-  activities: { id: string; name: string; minutes: number; kcal: number }[];
+  activities: {
+    id: string;
+    name: string;
+    minutes: number;
+    kcal: number;
+    intensity: "LIGHT" | "MODERATE" | "VIGOROUS" | null;
+    details: string | null;
+  }[];
   notes: { id: string; text: string; createdAt: string }[];
 }
 
@@ -312,15 +319,18 @@ export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
   VERY_ACTIVE: "Muito ativa (treino pesado/diário)",
 };
 
-export const MICRO_LABEL: Record<string, { label: string; unit: string }> = {
-  sodioMg: { label: "Sódio", unit: "mg" },
-  calcioMg: { label: "Cálcio", unit: "mg" },
-  ferroMg: { label: "Ferro", unit: "mg" },
-  potassioMg: { label: "Potássio", unit: "mg" },
-  vitaminaCMg: { label: "Vitamina C", unit: "mg" },
-  magnesioMg: { label: "Magnésio", unit: "mg" },
-  zincoMg: { label: "Zinco", unit: "mg" },
-  fosforoMg: { label: "Fósforo", unit: "mg" },
+export const MICRO_LABEL: Record<
+  string,
+  { label: string; unit: string; ref: number; limit?: boolean }
+> = {
+  sodioMg: { label: "Sódio", unit: "mg", ref: 2000, limit: true },
+  calcioMg: { label: "Cálcio", unit: "mg", ref: 1000 },
+  ferroMg: { label: "Ferro", unit: "mg", ref: 14 },
+  potassioMg: { label: "Potássio", unit: "mg", ref: 3500 },
+  vitaminaCMg: { label: "Vitamina C", unit: "mg", ref: 100 },
+  magnesioMg: { label: "Magnésio", unit: "mg", ref: 420 },
+  zincoMg: { label: "Zinco", unit: "mg", ref: 11 },
+  fosforoMg: { label: "Fósforo", unit: "mg", ref: 700 },
 };
 
 export function guessMeal(): MealType {

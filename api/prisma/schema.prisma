@@ -212,9 +212,17 @@ model Activity {
   name      String
   minutes   Int
   kcal      Int
-  createdAt DateTime @default(now())
+  intensity Intensity?
+  details   String?
+  createdAt DateTime   @default(now())
 
   @@index([userId, date])
+}
+
+enum Intensity {
+  LIGHT
+  MODERATE
+  VIGOROUS
 }
 
 model DailySteps {
