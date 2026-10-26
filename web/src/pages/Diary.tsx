@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -19,6 +19,7 @@ import {
   MEAL_LABEL,
   MICRO_LABEL,
   type Diary,
+  type TrainingHistory,
   type Entry,
   type MealType,
 } from "../lib/api";
@@ -30,8 +31,13 @@ import {
   useWeightKg,
 } from "../lib/exercise";
 import { dayLabel, shiftDay, today } from "../lib/date";
+import { ExercisesEditor } from "../components/Exercises";
 import {
   DISTANCE_SPORTS,
+  exerciseSummary,
+  fromDraft,
+  STRENGTH_SPORTS,
+  type ExerciseDraft,
   formatDuration as formatTrainingTime,
   formatKm,
   paceLabel,
@@ -429,8 +435,23 @@ function NutrientSheet({
 }
 
 function Meals({ diary, date }: { diary: Diary; date: string }) {
+  const invalidate = useInvalidateDay();
+  const qc = useQueryClient();
   const [open, setOpen] = useState<MealType | null>(null);
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [savedMeal, setSavedMeal] = useState<MealType | null>(null);
+  const repeat = useMutation({
+    mutationFn: (meal: MealType) => api.post("/entries/repeat", { date, meal }),
+    onSuccess: invalidate,
+  });
+  const favorite = useMutation({
+    mutationFn: ({ meal, name }: { meal: MealType; name: string }) =>
+      api.post("/saved-meals", { date, meal, name }),
+    onSuccess: (_, v) => {
+      setSavedMeal(v.meal);
+      void qc.invalidateQueries({ queryKey: ["saved-meals"] });
+    },
+  });
 
   return (
     <Card className="divide-y divide-slate-100 p-0">
@@ -463,6 +484,18 @@ function Meals({ diary, date }: { diary: Diary; date: string }) {
               +
             </Link>
           </div>
+          {m.entries.length === 0 && m.yesterdayCount > 0 && (
+            <div className="-mt-1 px-4 pb-3">
+              <button
+                disabled={repeat.isPending}
+                onClick={() => repeat.mutate(m.meal)}
+                className="rounded-full bg-soft px-4 py-2 text-sm font-bold text-ink/70 active:scale-95"
+              >
+                ↺ Repetir de ontem ({m.yesterdayCount}{" "}
+                {m.yesterdayCount === 1 ? "item" : "itens"})
+              </button>
+            </div>
+          )}
           {open === m.meal && m.entries.length > 0 && (
             <ul className="space-y-1 px-4 pb-3">
               {m.entries.map((e) => (
@@ -493,10 +526,33 @@ function Meals({ diary, date }: { diary: Diary; date: string }) {
                   </button>
                 </li>
               ))}
+              <li className="pt-1 text-center">
+                {savedMeal === m.meal ? (
+                  <span className="text-sm font-bold text-mint-500">
+                    ⭐ Salva nas favoritas! Use em + → Favoritas
+                  </span>
+                ) : (
+                  <button
+                    disabled={favorite.isPending}
+                    onClick={() => {
+                      const name = window.prompt(
+                        "Nome da favorita:",
+                        `Meu ${MEAL_LABEL[m.meal].toLowerCase()}`,
+                      );
+                      if (name?.trim())
+                        favorite.mutate({ meal: m.meal, name: name.trim() });
+                    }}
+                    className="text-sm font-bold text-ink/50"
+                  >
+                    ⭐ Salvar como favorita
+                  </button>
+                )}
+              </li>
             </ul>
           )}
         </div>
       ))}
+      <ErrorText error={repeat.error ?? favorite.error} />
       <EditEntrySheet entry={editing} onClose={() => setEditing(null)} />
     </Card>
   );
@@ -766,6 +822,23 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_ACTIVITY);
   const [explain, setExplain] = useState<string | null>(null);
+  const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
+  const isStrength = STRENGTH_SPORTS.includes(form.name);
+  const { data: history } = useQuery({
+    queryKey: ["training", today()],
+    queryFn: () =>
+      api.get<TrainingHistory>(`/activities/history?today=${today()}`),
+    enabled: open && isStrength,
+  });
+  const pastStrength = (history?.activities ?? []).filter(
+    (a) => a.exercises?.length,
+  );
+  const knownExercises = [
+    ...new Set(pastStrength.flatMap((a) => a.exercises!.map((e) => e.name))),
+  ];
+  const lastWorkout =
+    [...pastStrength].reverse().find((a) => a.name === form.name)?.exercises ??
+    null;
 
   const preset = ACTIVITY_PRESETS.find((p) => p.name === form.name);
   const update = (patch: Partial<typeof EMPTY_ACTIVITY>) => {
@@ -784,6 +857,7 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     setOpen(false);
     setForm(EMPTY_ACTIVITY);
     setExplain(null);
+    setExercises([]);
   };
 
   const distanceKm = parseFloat(form.distance.replace(",", ".")) || 0;
@@ -795,6 +869,10 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     intensity: form.intensity,
     details: form.details.trim() || undefined,
     distanceKm: showDistance && distanceKm > 0 ? distanceKm : undefined,
+    exercises:
+      isStrength && fromDraft(exercises).length
+        ? fromDraft(exercises)
+        : undefined,
   });
   const estimate = useMutation({
     mutationFn: () =>
@@ -861,9 +939,11 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
                     ` · ${formatKm(a.distanceKm)} · ${paceLabel(a.name, a.minutes, a.distanceKm)}`}
                   {a.intensity && ` · ${INTENSITY_LABEL[a.intensity]}`}
                 </span>
-                {a.details && expanded !== a.id && (
+                {expanded !== a.id && (a.exercises || a.details) && (
                   <span className="block truncate text-xs text-ink/50">
-                    {a.details}
+                    {a.exercises
+                      ? a.exercises.map((e) => e.name).join(", ")
+                      : a.details}
                   </span>
                 )}
               </button>
@@ -878,6 +958,13 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
                 </button>
               </span>
             </div>
+            {expanded === a.id && a.exercises && (
+              <ul className="mt-1 space-y-0.5 text-sm text-ink/70">
+                {a.exercises.map((e, i) => (
+                  <li key={i}>🏋️ {exerciseSummary(e)}</li>
+                ))}
+              </ul>
+            )}
             {a.details && expanded === a.id && (
               <p className="mt-1 whitespace-pre-wrap text-sm text-ink/70">
                 {a.details}
@@ -949,6 +1036,14 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
                 </span>
               )}
             </Field>
+          )}
+          {isStrength && (
+            <ExercisesEditor
+              value={exercises}
+              onChange={setExercises}
+              known={knownExercises}
+              last={lastWorkout}
+            />
           )}
           <Field label="O que você fez? (opcional)">
             <textarea

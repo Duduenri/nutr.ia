@@ -66,6 +66,11 @@ class WaterReminderDto {
   every!: number;
 }
 
+class MealRemindersDto {
+  @IsBoolean()
+  enabled!: boolean;
+}
+
 class UnsubscribeDto {
   @IsString()
   endpoint!: string;
@@ -148,6 +153,26 @@ export class PushController {
         waterReminderEnd: dto.end,
         waterReminderEvery: dto.every,
       },
+    });
+    return dto;
+  }
+
+  @Get('meals')
+  async mealReminders(@UserId() userId: string) {
+    const u = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    return { enabled: u.mealReminders };
+  }
+
+  @Patch('meals')
+  async setMealReminders(
+    @UserId() userId: string,
+    @Body() dto: MealRemindersDto,
+  ) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { mealReminders: dto.enabled },
     });
     return dto;
   }

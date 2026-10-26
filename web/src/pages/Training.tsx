@@ -13,11 +13,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { StrengthProgress } from "../components/StrengthProgress";
 import { Card, fmt, Segmented, Spinner } from "../components/ui";
 import { api, type TrainingHistory } from "../lib/api";
 import { today } from "../lib/date";
 import {
   DISTANCE_SPORTS,
+  exerciseSummary,
   formatDuration,
   formatKm,
   formatPace,
@@ -419,6 +421,8 @@ export function TrainingTab() {
         </Card>
       )}
 
+      <StrengthProgress activities={acts} />
+
       <Card>
         <h3 className="mb-3 text-lg font-extrabold">🏅 Recordes</h3>
         <div className="grid grid-cols-2 gap-2">
@@ -529,6 +533,11 @@ export function TrainingTab() {
                     ` · ${formatKm(a.distanceKm)} · ${paceLabel(a.name, a.minutes, a.distanceKm)}`}{" "}
                   · {fmt(a.kcal)} kcal
                 </div>
+                {a.exercises?.map((e, i) => (
+                  <p key={i} className="text-xs text-ink/60">
+                    🏋️ {exerciseSummary(e)}
+                  </p>
+                ))}
                 {a.details && (
                   <p className="mt-0.5 line-clamp-2 text-xs text-ink/50">
                     {a.details}

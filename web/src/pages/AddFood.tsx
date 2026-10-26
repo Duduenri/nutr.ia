@@ -2,7 +2,7 @@ import {
   BrowserMultiFormatReader,
   type IScannerControls,
 } from "@zxing/browser";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ExerciseEquivalent } from "../components/ExerciseEquivalent";
@@ -19,6 +19,7 @@ import {
   api,
   foodToItem,
   guessMeal,
+  MEAL_EMOJI,
   MEAL_LABEL,
   scaleItem,
   type EntrySource,
@@ -38,13 +39,14 @@ interface CartItem extends FoodItem {
   photoId?: string;
 }
 
-type Tab = "meal" | "barcode" | "search" | "recent" | "manual";
+type Tab = "meal" | "barcode" | "search" | "recent" | "favorites" | "manual";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "meal", label: "Foto e texto", icon: "📷" },
   { id: "barcode", label: "Código de barras", icon: "🏷️" },
   { id: "search", label: "Buscar", icon: "🔍" },
   { id: "recent", label: "Recentes", icon: "🕘" },
+  { id: "favorites", label: "Favoritas", icon: "⭐" },
   { id: "manual", label: "Manual", icon: "✏️" },
 ];
 
@@ -130,6 +132,9 @@ export function AddFoodPage() {
         )}
         {tab === "search" && (
           <SearchTab onAdd={(item, source) => addItems([item], source)} />
+        )}
+        {tab === "favorites" && (
+          <FavoritesTab onAdd={(items) => addItems(items, "FAVORITE")} />
         )}
         {tab === "manual" && (
           <ManualForm onAdd={(item) => addItems([item], "MANUAL")} />
@@ -785,6 +790,79 @@ function ManualForm({ onAdd }: { onAdd: (item: FoodItem) => void }) {
         Adicionar
       </Button>
     </div>
+  );
+}
+
+interface SavedMeal {
+  id: string;
+  name: string;
+  meal: MealType | null;
+  items: FoodItem[];
+  kcal: number;
+  protein: number;
+}
+
+function FavoritesTab({ onAdd }: { onAdd: (items: FoodItem[]) => void }) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["saved-meals"],
+    queryFn: () => api.get<SavedMeal[]>("/saved-meals"),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.del(`/saved-meals/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["saved-meals"] }),
+  });
+
+  if (isLoading) return <Spinner />;
+  if (!data?.length) {
+    return (
+      <p className="rounded-2xl bg-white p-4 text-center text-sm text-ink/60 shadow-card">
+        Nenhuma favorita ainda. No Diário, abra uma refeição que você repete
+        sempre (ex.: seu café da manhã) e toque em{" "}
+        <b>⭐ Salvar como favorita</b>. Depois é só um toque aqui.
+      </p>
+    );
+  }
+  return (
+    <ul className="space-y-2">
+      {data.map((f) => (
+        <li
+          key={f.id}
+          className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-card"
+        >
+          <button
+            onClick={() => onAdd(f.items)}
+            className="min-w-0 flex-1 text-left"
+          >
+            <span className="block font-bold">
+              ⭐ {f.name}
+              {f.meal && (
+                <span className="text-xs font-semibold text-ink/40">
+                  {" "}
+                  · {MEAL_EMOJI[f.meal]}
+                </span>
+              )}
+            </span>
+            <span className="block truncate text-xs text-ink/50">
+              {f.items.map((i) => i.name).join(", ")}
+            </span>
+            <span className="text-xs font-bold text-ink/60">
+              {fmt(f.kcal)} kcal · P {fmt(f.protein)} g
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm(`Apagar a favorita "${f.name}"?`))
+                remove.mutate(f.id);
+            }}
+            className="p-2 text-ink/30"
+            aria-label="Apagar favorita"
+          >
+            ✕
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

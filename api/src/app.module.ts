@@ -16,6 +16,9 @@ import { FoodsController } from './foods/foods.controller';
 import { ChallengesController } from './friends/challenges.controller';
 import { ChallengesService } from './friends/challenges.service';
 import { FriendsController } from './friends/friends.controller';
+import { SavedMealsController } from './diary/saved-meals.controller';
+import { BodyController } from './body/body.controller';
+import { ShoppingController } from './shopping/shopping.controller';
 import { FriendsService } from './friends/friends.service';
 import { GameController } from './game/game.controller';
 import { GameService } from './game/game.service';
@@ -57,6 +60,9 @@ import { SupplementsController } from './supplements/supplements.controller';
     GameController,
     SupplementsController,
     FriendsController,
+    SavedMealsController,
+    BodyController,
+    ShoppingController,
     ChallengesController,
     ExamsController,
     PushController,

@@ -14,6 +14,7 @@ import {
 import { EntrySource, Intensity, MealType, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsDateString,
@@ -122,6 +123,41 @@ class WaterDto {
   ml!: number;
 }
 
+class SetDto {
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  reps!: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  kg!: number;
+}
+
+class ExerciseDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  name!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(15)
+  @ValidateNested({ each: true })
+  @Type(() => SetDto)
+  sets!: SetDto[];
+}
+
+function exercisesText(exercises: ExerciseDto[] | undefined): string {
+  return (exercises ?? [])
+    .map(
+      (e) =>
+        `${e.name}: ${e.sets.map((s) => `${s.reps}x${s.kg}kg`).join(', ')}`,
+    )
+    .join('; ');
+}
+
 class EstimateActivityDto {
   @IsString()
   @MinLength(1)
@@ -147,6 +183,13 @@ class EstimateActivityDto {
   @Min(0.01)
   @Max(500)
   distanceKm?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ExerciseDto)
+  exercises?: ExerciseDto[];
 }
 
 class ActivityDto extends EstimateActivityDto {
@@ -286,6 +329,9 @@ export class DiaryController {
       data: {
         ...dto,
         details: dto.details?.trim() || null,
+        exercises: dto.exercises?.length
+          ? (dto.exercises as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         userId,
         date: parseDay(dto.date.slice(0, 10)),
       },
@@ -318,6 +364,7 @@ export class DiaryController {
         intensity: a.intensity,
         details: a.details,
         distanceKm: a.distanceKm,
+        exercises: a.exercises,
       })),
       steps: steps.map((s) => ({ date: formatDay(s.date), steps: s.steps })),
     };
@@ -338,7 +385,10 @@ export class DiaryController {
     ]);
     return this.ai.estimateActivity({
       ...dto,
-      details: dto.details?.trim(),
+      details:
+        [dto.details?.trim(), exercisesText(dto.exercises)]
+          .filter(Boolean)
+          .join('. ') || undefined,
       weightKg: weight?.kg ?? user.startWeightKg,
       sex: user.sex,
       age: user.birthDate ? ageFrom(user.birthDate) : null,

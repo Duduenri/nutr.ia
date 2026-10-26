@@ -43,6 +43,7 @@ enum EntrySource {
   MANUAL
   RECIPE
   SUPPLEMENT
+  FAVORITE
 }
 
 enum FoodSource {
@@ -79,6 +80,7 @@ model User {
   waterReminderStart String         @default("08:00")
   waterReminderEnd   String         @default("22:00")
   waterReminderEvery Int            @default(120)
+  mealReminders      Boolean        @default(true)
   friendCode         String?        @unique
   shareWeight        Boolean        @default(false)
   kcalTarget         Int?
@@ -119,6 +121,10 @@ model User {
   documents           UserDocument[]
   pushSubscriptions   PushSubscription[]
   reminderLogs        ReminderLog[]
+  savedMeals          SavedMeal[]
+  bodyMeasures        BodyMeasure[]
+  progressPhotos      ProgressPhoto[]
+  shoppingLists       ShoppingList[]
 }
 
 model Food {
@@ -217,6 +223,7 @@ model Activity {
   intensity  Intensity?
   details    String?
   distanceKm Float?
+  exercises  Json?
   createdAt  DateTime   @default(now())
 
   @@index([userId, date])
@@ -508,4 +515,55 @@ model Challenge {
 
   @@index([fromId, status])
   @@index([toId, status])
+}
+
+model SavedMeal {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  meal      MealType?
+  items     Json
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model BodyMeasure {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  waistCm    Float?
+  hipCm      Float?
+  chestCm    Float?
+  armCm      Float?
+  thighCm    Float?
+  bodyFatPct Float?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+model ProgressPhoto {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  path      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model ShoppingList {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  items     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
 }

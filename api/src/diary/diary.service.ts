@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MealEntry, MealType } from '@prisma/client';
-import { formatDay, parseDay } from '../common/date';
+import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const MEAL_SPLIT: Record<MealType, number> = {
@@ -39,22 +39,28 @@ export class DiaryService {
   async day(userId: string, day: string) {
     const date = parseDay(day);
     const where = { userId, date };
-    const [user, entries, water, activities, notes, steps] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId } }),
-      this.prisma.mealEntry.findMany({
-        where,
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.waterLog.findMany({ where, orderBy: { createdAt: 'asc' } }),
-      this.prisma.activity.findMany({
-        where,
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.note.findMany({ where, orderBy: { createdAt: 'asc' } }),
-      this.prisma.dailySteps.findUnique({
-        where: { userId_date: { userId, date } },
-      }),
-    ]);
+    const [user, entries, water, activities, notes, steps, yesterday] =
+      await Promise.all([
+        this.prisma.user.findUnique({ where: { id: userId } }),
+        this.prisma.mealEntry.findMany({
+          where,
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.waterLog.findMany({ where, orderBy: { createdAt: 'asc' } }),
+        this.prisma.activity.findMany({
+          where,
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.note.findMany({ where, orderBy: { createdAt: 'asc' } }),
+        this.prisma.dailySteps.findUnique({
+          where: { userId_date: { userId, date } },
+        }),
+        this.prisma.mealEntry.groupBy({
+          by: ['meal'],
+          where: { userId, date: addDays(date, -1) },
+          _count: { _all: true },
+        }),
+      ]);
     if (!user) {
       throw new NotFoundException();
     }
@@ -66,6 +72,8 @@ export class DiaryService {
         meal,
         targetKcal: Math.round(kcalTarget * MEAL_SPLIT[meal]),
         kcal: Math.round(items.reduce((s, e) => s + e.kcal, 0)),
+        yesterdayCount:
+          yesterday.find((y) => y.meal === meal)?._count._all ?? 0,
         entries: items.map((e) => ({
           ...e,
           date: formatDay(e.date),

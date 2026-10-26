@@ -98,6 +98,38 @@ const EVERY = [
   { value: 180, label: "3h" },
 ];
 
+function MealRemindersToggle() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["meal-reminders"],
+    queryFn: () => api.get<{ enabled: boolean }>("/push/meals"),
+  });
+  const set = useMutation({
+    mutationFn: (enabled: boolean) => api.patch("/push/meals", { enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["meal-reminders"] }),
+  });
+  return (
+    <label className="flex items-start justify-between gap-3 rounded-2xl bg-soft px-4 py-3">
+      <span>
+        <span className="block font-bold">
+          🍽️ Lembrar de registrar refeições
+        </span>
+        <span className="text-xs text-ink/60">
+          Avisa se esquecer o café (10h30), almoço (14h30) ou jantar (21h30), e
+          às 17h se a proteína estiver bem abaixo da meta.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        className="mt-1 h-6 w-6 shrink-0 accent-mint-500"
+        checked={data?.enabled ?? true}
+        disabled={!data || set.isPending}
+        onChange={(e) => set.mutate(e.target.checked)}
+      />
+    </label>
+  );
+}
+
 export function WaterReminderForm({ onDone }: { onDone?: () => void }) {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -121,6 +153,7 @@ export function WaterReminderForm({ onDone }: { onDone?: () => void }) {
   return (
     <div className="space-y-4">
       <NotificationsSetup />
+      <MealRemindersToggle />
       <label className="flex items-center justify-between rounded-2xl bg-soft px-4 py-3">
         <span className="font-bold">💧 Lembrar de beber água</span>
         <input

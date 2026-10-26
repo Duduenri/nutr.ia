@@ -1,6 +1,13 @@
 export type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 export type EntrySource =
-  "PHOTO" | "TEXT" | "VOICE" | "BARCODE" | "SEARCH" | "MANUAL" | "RECIPE";
+  | "PHOTO"
+  | "TEXT"
+  | "VOICE"
+  | "BARCODE"
+  | "SEARCH"
+  | "MANUAL"
+  | "RECIPE"
+  | "FAVORITE";
 export type Goal = "LOSE" | "MAINTAIN" | "GAIN";
 export type Sex = "FEMALE" | "MALE";
 export type SurgeryType = "BGA" | "SLEEVE" | "BYPASS" | "BPD_DS";
@@ -131,6 +138,7 @@ export interface Diary {
     meal: MealType;
     targetKcal: number;
     kcal: number;
+    yesterdayCount: number;
     entries: Entry[];
   }[];
   water: { ml: number; logs: { id: string; ml: number }[] };
@@ -142,6 +150,7 @@ export interface Diary {
     intensity: "LIGHT" | "MODERATE" | "VIGOROUS" | null;
     details: string | null;
     distanceKm: number | null;
+    exercises: { name: string; sets: { reps: number; kg: number }[] }[] | null;
   }[];
   notes: { id: string; text: string; createdAt: string }[];
 }
@@ -586,6 +595,7 @@ export interface TrainingHistory {
     intensity: "LIGHT" | "MODERATE" | "VIGOROUS" | null;
     details: string | null;
     distanceKm: number | null;
+    exercises: { name: string; sets: { reps: number; kg: number }[] }[] | null;
   }[];
   steps: { date: string; steps: number }[];
 }

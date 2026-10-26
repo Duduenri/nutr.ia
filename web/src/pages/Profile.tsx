@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { BodyCards } from "../components/Body";
 import { ProfileForm } from "../components/ProfileForm";
 import { WaterReminderForm } from "../components/Reminders";
 import { TrainingTab } from "./Training";
@@ -294,6 +295,7 @@ function WeightTab({ profile }: { profile: Profile }) {
           </p>
         )}
       </Card>
+      <BodyCards />
       {data.logs.length > 0 && (
         <Card className="mb-4">
           <h3 className="mb-2 text-lg font-extrabold">Histórico</h3>

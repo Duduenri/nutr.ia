@@ -24,3 +24,48 @@ export function formatDuration(minutes: number): string {
   if (!h) return `${m} min`;
   return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 }
+
+export const STRENGTH_SPORTS = ["Musculação", "Funcional"];
+
+export interface Exercise {
+  name: string;
+  sets: { reps: number; kg: number }[];
+}
+
+export function exerciseSummary(e: Exercise): string {
+  const kg = (v: number) =>
+    v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  const same = e.sets.every(
+    (s) => s.reps === e.sets[0].reps && s.kg === e.sets[0].kg,
+  );
+  if (same) {
+    const s = e.sets[0];
+    return `${e.name} ${e.sets.length}×${s.reps}${s.kg ? ` · ${kg(s.kg)} kg` : ""}`;
+  }
+  return `${e.name} ${e.sets.map((s) => `${s.reps}×${kg(s.kg)}`).join(", ")} kg`;
+}
+
+export interface ExerciseDraft {
+  name: string;
+  sets: { reps: string; kg: string }[];
+}
+
+const num = (v: string) => parseFloat(v.replace(",", ".")) || 0;
+
+export function toDraft(list: Exercise[]): ExerciseDraft[] {
+  return list.map((e) => ({
+    name: e.name,
+    sets: e.sets.map((s) => ({ reps: String(s.reps), kg: String(s.kg) })),
+  }));
+}
+
+export function fromDraft(list: ExerciseDraft[]): Exercise[] {
+  return list
+    .map((e) => ({
+      name: e.name.trim(),
+      sets: e.sets
+        .filter((s) => num(s.reps) > 0)
+        .map((s) => ({ reps: Math.round(num(s.reps)), kg: num(s.kg) })),
+    }))
+    .filter((e) => e.name && e.sets.length);
+}

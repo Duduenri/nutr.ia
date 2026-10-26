@@ -242,6 +242,45 @@ const ActivityEstimateSchema = z.object({
 
 export type ActivityEstimate = z.infer<typeof ActivityEstimateSchema>;
 
+export const SHOPPING_CATEGORIES = [
+  'Hortifruti',
+  'Açougue e peixaria',
+  'Frios e laticínios',
+  'Padaria',
+  'Mercearia',
+  'Bebidas',
+  'Congelados',
+  'Outros',
+] as const;
+
+const ShoppingSchema = z.object({
+  title: z.string().describe('Título curto, ex.: "Compras da semana"'),
+  items: z.array(
+    z.object({
+      name: z.string(),
+      quantity: z
+        .string()
+        .describe(
+          'Quantidade total a comprar, ex.: "1 kg", "2 dúzias", "3 un"',
+        ),
+      category: z.enum(SHOPPING_CATEGORIES),
+    }),
+  ),
+});
+
+export type ShoppingDraft = z.infer<typeof ShoppingSchema>;
+
+const WeeklySummarySchema = z.object({
+  headline: z
+    .string()
+    .describe(
+      'Frase de até 110 caracteres para a notificação, com o principal destaque positivo',
+    ),
+  message: z.string().describe('Resumo completo em markdown curto para o chat'),
+});
+
+export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;
+
 export interface ActivityInput {
   name: string;
   minutes: number;
@@ -618,6 +657,51 @@ Seja conservadora: apps e relógios costumam superestimar. Arredonde para inteir
       ...response.output_parsed,
       kcal: Math.max(0, Math.round(response.output_parsed.kcal)),
     };
+  }
+
+  async shoppingList(
+    source: string,
+    people: number,
+    days: number,
+  ): Promise<ShoppingDraft> {
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: `Você monta listas de compras de supermercado no Brasil a partir de planos alimentares ou receitas.
+Some as quantidades de ingredientes repetidos e converta para unidades de compra (kg, g, dúzia, unidade, pacote, litro), arredondando para cima em embalagens comuns.
+A lista é para ${people} pessoa(s) e ${days} dia(s): multiplique as porções conforme necessário.
+Ignore água, sal, e temperos básicos que quase todo mundo tem (a menos que o plano peça quantidade relevante). Não invente itens que não estejam no material.`,
+        input: source,
+        text: { format: zodTextFormat(ShoppingSchema, 'shopping') },
+      }),
+    );
+    if (!response.output_parsed) {
+      throw new UnprocessableEntityException(
+        'Não consegui montar a lista. Tente de novo.',
+      );
+    }
+    return response.output_parsed;
+  }
+
+  async weeklySummary(context: CoachContext): Promise<WeeklySummary> {
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: coachSystem(context),
+        input: `É domingo à noite. Faça meu resumo da semana com base nos dados dos últimos 7 dias:
+1. O que foi bem (seja específica, com números: dias registrados, proteína, água, treinos, jejuns, peso).
+2. Um único ponto para focar na próxima semana, com uma ação prática e simples.
+3. Uma frase curta de motivação.
+Seja breve (no máximo ~120 palavras) e não coloque título. Se a semana teve poucos registros, acolha sem julgamento e sugira um primeiro passo pequeno.`,
+        text: { format: zodTextFormat(WeeklySummarySchema, 'weekly') },
+      }),
+    );
+    if (!response.output_parsed) {
+      throw new UnprocessableEntityException('Resumo indisponível');
+    }
+    return response.output_parsed;
   }
 
   private async call<T>(fn: () => Promise<T>): Promise<T> {

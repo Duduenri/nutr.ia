@@ -1,3 +1,4 @@
+import { ShoppingSheet } from "../components/Shopping";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -43,6 +44,7 @@ export function RecipesPage() {
   const [meal, setMeal] = useState<MealType | "ANY">("ANY");
   const [request, setRequest] = useState("");
   const [open, setOpen] = useState<Recipe | null>(null);
+  const [shopping, setShopping] = useState(false);
 
   const { data: recipes = [], isLoading } = useQuery({
     queryKey: ["recipes"],
@@ -113,13 +115,14 @@ export function RecipesPage() {
       </header>
 
       <div className="space-y-4 px-4 pt-4">
-        <Button
-          variant="soft"
-          className="w-full"
-          onClick={() => setEditing("new")}
-        >
-          ＋ Adicionar minha receita
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="soft" onClick={() => setEditing("new")}>
+            ＋ Minha receita
+          </Button>
+          <Button variant="soft" onClick={() => setShopping(true)}>
+            🛒 Lista de compras
+          </Button>
+        </div>
         <Segmented
           options={[
             { value: "all", label: `Todas (${recipes.length})` },
@@ -162,6 +165,11 @@ export function RecipesPage() {
           setOpen(null);
           setEditing(r);
         }}
+      />
+      <ShoppingSheet
+        open={shopping}
+        onClose={() => setShopping(false)}
+        recipes={recipes}
       />
       <RecipeEditor
         open={editing !== null}
