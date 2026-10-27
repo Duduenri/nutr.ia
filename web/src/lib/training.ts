@@ -79,6 +79,10 @@ const MUSCLE_RULES: [string, RegExp][] = [
     "Pernas",
     /hip thrust|agachamento|leg press|extensora|flexora|stiff|afundo|passada|panturrilha|eleva[çc][ãa]o p[ée]lvica|gl[úu]teo|abdu[çc]|adu[çc]|hack|b[úu]lgaro|terra|cadeira|mesa/,
   ],
+  [
+    "Antebraço",
+    /rosca (inversa|reversa|de punho|punho)|punho|antebra[çc]o|farmer|wrist/,
+  ],
   ["Tríceps", /tr[íi]ceps|franc[êe]s|mergulho|testa|coice/],
   ["Bíceps", /b[íi]ceps|rosca/],
   ["Peito", /supino|crucifixo|peck|voador|flex[ãa]o|crossover|cross over/],
@@ -95,6 +99,7 @@ export const MUSCLE_ORDER = [
   "Ombros",
   "Bíceps",
   "Tríceps",
+  "Antebraço",
   "Pernas",
   "Abdômen",
   "Outros",
