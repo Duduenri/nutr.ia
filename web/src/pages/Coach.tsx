@@ -9,7 +9,12 @@ import {
   Sheet,
   Spinner,
 } from "../components/ui";
-import { api, type ChatMessage, type Plan } from "../lib/api";
+import {
+  api,
+  type ChatMessage,
+  type Plan,
+  type TargetProposal,
+} from "../lib/api";
 import { today } from "../lib/date";
 import { shrinkImage } from "../lib/image";
 
@@ -167,6 +172,7 @@ function Chat() {
               ) : (
                 <Markdown>{m.content}</Markdown>
               )}
+              {m.proposal && m.proposalState && <ProposalCard message={m} />}
             </div>
           </div>
         ))}
@@ -249,6 +255,84 @@ function Chat() {
           </button>
         </form>
       </div>
+    </div>
+  );
+}
+
+const PROPOSAL_FIELDS: {
+  key: keyof TargetProposal;
+  label: string;
+  unit: string;
+}[] = [
+  { key: "kcal", label: "Calorias", unit: "kcal" },
+  { key: "protein", label: "Proteína", unit: "g" },
+  { key: "carbs", label: "Carboidratos", unit: "g" },
+  { key: "fat", label: "Gorduras", unit: "g" },
+  { key: "fiber", label: "Fibras", unit: "g" },
+  { key: "waterMl", label: "Água", unit: "ml" },
+];
+
+function ProposalCard({ message }: { message: ChatMessage }) {
+  const qc = useQueryClient();
+  const answer = useMutation({
+    mutationFn: (accept: boolean) =>
+      api.post<ChatMessage>(`/coach/messages/${message.id}/proposal`, {
+        accept,
+      }),
+    onSuccess: (updated) => {
+      qc.setQueryData<ChatMessage[]>(["chat"], (old = []) =>
+        old.map((m) =>
+          m.id === updated.id
+            ? { ...m, proposalState: updated.proposalState }
+            : m,
+        ),
+      );
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+      void qc.invalidateQueries({ queryKey: ["diary"] });
+    },
+  });
+  const p = message.proposal!;
+  const fields = PROPOSAL_FIELDS.filter((f) => p[f.key] != null);
+
+  return (
+    <div className="mt-3 rounded-2xl bg-mint-50 p-3">
+      <p className="mb-2 text-sm font-extrabold">🎯 Novas metas diárias</p>
+      <div className="space-y-1 text-sm">
+        {fields.map((f) => (
+          <div key={f.key} className="flex justify-between">
+            <span className="text-ink/60">{f.label}</span>
+            <span className="font-bold">
+              {p[f.key]!.toLocaleString("pt-BR")} {f.unit}
+            </span>
+          </div>
+        ))}
+      </div>
+      {message.proposalState === "pending" ? (
+        <div className="mt-3 flex gap-2">
+          <Button
+            className="flex-1 py-2"
+            loading={answer.isPending}
+            onClick={() => answer.mutate(true)}
+          >
+            Aplicar no app
+          </Button>
+          <Button
+            variant="ghost"
+            className="py-2"
+            disabled={answer.isPending}
+            onClick={() => answer.mutate(false)}
+          >
+            Agora não
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-2 text-sm font-bold text-mint-500">
+          {message.proposalState === "applied"
+            ? "✓ Metas atualizadas no Diário"
+            : "Sugestão não aplicada"}
+        </p>
+      )}
+      <ErrorText error={answer.error} />
     </div>
   );
 }

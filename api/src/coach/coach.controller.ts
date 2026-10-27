@@ -20,6 +20,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsOptional,
@@ -38,6 +39,38 @@ import { AuthGuard, UserId } from '../auth/auth.guard';
 import { PhotosService } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserContextService } from './user-context.service';
+
+type TargetKey = 'kcal' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'waterMl';
+
+const TARGET_LIMITS: Record<TargetKey, [number, number]> = {
+  kcal: [1200, 6000],
+  protein: [20, 400],
+  carbs: [20, 900],
+  fat: [20, 300],
+  fiber: [5, 80],
+  waterMl: [500, 6000],
+};
+
+function validTargets(
+  raw: Partial<Record<TargetKey, number | null>>,
+): Partial<Record<TargetKey, number>> | null {
+  const out: Partial<Record<TargetKey, number>> = {};
+  for (const [key, [min, max]] of Object.entries(TARGET_LIMITS) as [
+    TargetKey,
+    [number, number],
+  ][]) {
+    const v = raw[key];
+    if (typeof v === 'number' && v >= min && v <= max) {
+      out[key] = Math.round(v);
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+class ProposalDto {
+  @IsBoolean()
+  accept!: boolean;
+}
 
 class MessageDto {
   @IsOptional()
@@ -165,12 +198,56 @@ export class CoachController {
     while (history.length && history[0].role !== 'user') {
       history.shift();
     }
-    const reply = await this.ai.chat(
+    const { reply, targets } = await this.ai.coachReply(
       await this.userContext.build(userId, dto.today),
       history,
     );
+    const proposal = targets ? validTargets(targets) : null;
     return this.prisma.chatMessage.create({
-      data: { userId, role: 'ASSISTANT', content: reply },
+      data: {
+        userId,
+        role: 'ASSISTANT',
+        content: reply,
+        ...(proposal
+          ? {
+              proposal: proposal,
+              proposalState: 'pending',
+            }
+          : {}),
+      },
+    });
+  }
+
+  @Post('messages/:id/proposal')
+  @HttpCode(200)
+  async answerProposal(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: ProposalDto,
+  ) {
+    const message = await this.prisma.chatMessage.findFirst({
+      where: { id, userId, proposalState: 'pending' },
+    });
+    if (!message?.proposal) {
+      throw new NotFoundException('Essa sugestão já foi respondida');
+    }
+    if (dto.accept) {
+      const t = message.proposal as Partial<Record<TargetKey, number>>;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          kcalTarget: t.kcal,
+          proteinTarget: t.protein,
+          carbsTarget: t.carbs,
+          fatTarget: t.fat,
+          fiberTarget: t.fiber,
+          waterTargetMl: t.waterMl,
+        },
+      });
+    }
+    return this.prisma.chatMessage.update({
+      where: { id },
+      data: { proposalState: dto.accept ? 'applied' : 'dismissed' },
     });
   }
 

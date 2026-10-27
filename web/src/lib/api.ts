@@ -231,7 +231,18 @@ export interface ChatMessage {
   content: string;
   photoId: string | null;
   previewUrl?: string;
+  proposal?: TargetProposal | null;
+  proposalState?: "pending" | "applied" | "dismissed" | null;
   createdAt: string;
+}
+
+export interface TargetProposal {
+  kcal?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+  waterMl?: number;
 }
 
 export interface Plan {

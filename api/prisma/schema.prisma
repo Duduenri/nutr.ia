@@ -256,14 +256,16 @@ model Note {
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      ChatRole
-  content   String
-  photoId   String?
-  photo     Photo?   @relation(fields: [photoId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          ChatRole
+  content       String
+  photoId       String?
+  photo         Photo?   @relation(fields: [photoId], references: [id], onDelete: SetNull)
+  proposal      Json?
+  proposalState String?
+  createdAt     DateTime @default(now())
 
   @@index([userId, createdAt])
 }

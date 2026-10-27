@@ -318,6 +318,25 @@ const RevisedPlanSchema = z.object({
 
 export type RevisedPlan = z.infer<typeof RevisedPlanSchema>;
 
+const CoachReplySchema = z.object({
+  reply: z.string().describe('Sua resposta para a pessoa, em markdown'),
+  targets: z
+    .object({
+      kcal: z.number().nullable(),
+      protein: z.number().nullable().describe('gramas'),
+      carbs: z.number().nullable().describe('gramas'),
+      fat: z.number().nullable().describe('gramas'),
+      fiber: z.number().nullable().describe('gramas'),
+      waterMl: z.number().nullable(),
+    })
+    .nullable()
+    .describe(
+      'Preencha SOMENTE quando você estiver propondo novas metas diárias para o app (ex.: a pessoa pediu para ajustar/atualizar as metas). Use um número único por meta (o centro da faixa), null nas que não mudam. Caso contrário, null.',
+    ),
+});
+
+export type CoachReply = z.infer<typeof CoachReplySchema>;
+
 export interface ActivityInput {
   name: string;
   minutes: number;
@@ -336,6 +355,27 @@ export interface CoachContext {
   exams?: string;
   material?: string;
   training?: string;
+}
+
+function toInput(history: ChatTurn[]): ResponseInputItem[] {
+  return history.map((turn): ResponseInputItem =>
+    turn.role === 'user' && turn.imageBase64
+      ? {
+          role: 'user',
+          content: [
+            {
+              type: 'input_image',
+              image_url: `data:image/jpeg;base64,${turn.imageBase64}`,
+              detail: 'auto',
+            },
+            {
+              type: 'input_text',
+              text: turn.content || 'O que acha disso que vou comer?',
+            },
+          ],
+        }
+      : { role: turn.role, content: turn.content },
+  );
 }
 
 function coachSystem(context: CoachContext): string {
@@ -420,30 +460,36 @@ export class AiService {
     ]);
   }
 
+  async coachReply(
+    context: CoachContext,
+    history: ChatTurn[],
+  ): Promise<CoachReply> {
+    const response = await this.call(() =>
+      this.client.responses.parse({
+        model: this.model,
+        reasoning: { effort: 'low' },
+        instructions: `${coachSystem(context)}
+
+Quando propuser novas metas diárias, diga na resposta que ela pode tocar em "Aplicar no app" logo abaixo para atualizar o Diário. Não diga que já atualizou: quem aplica é ela.`,
+        input: toInput(history),
+        text: { format: zodTextFormat(CoachReplySchema, 'coach') },
+      }),
+    );
+    if (!response.output_parsed?.reply.trim()) {
+      throw new UnprocessableEntityException(
+        'Não consegui responder isso. Tente reformular.',
+      );
+    }
+    return response.output_parsed;
+  }
+
   async chat(context: CoachContext, history: ChatTurn[]): Promise<string> {
     const response = await this.call(() =>
       this.client.responses.create({
         model: this.model,
         reasoning: { effort: 'low' },
         instructions: coachSystem(context),
-        input: history.map((turn): ResponseInputItem =>
-          turn.role === 'user' && turn.imageBase64
-            ? {
-                role: 'user',
-                content: [
-                  {
-                    type: 'input_image',
-                    image_url: `data:image/jpeg;base64,${turn.imageBase64}`,
-                    detail: 'auto',
-                  },
-                  {
-                    type: 'input_text',
-                    text: turn.content || 'O que acha disso que vou comer?',
-                  },
-                ],
-              }
-            : { role: turn.role, content: turn.content },
-        ),
+        input: toInput(history),
       }),
     );
     const text = response.output_text.trim();
