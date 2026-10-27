@@ -661,6 +661,15 @@ function PlanView({
       onRevised(p);
     },
   });
+  const qc = useQueryClient();
+  const [routineMade, setRoutineMade] = useState(false);
+  const toRoutine = useMutation({
+    mutationFn: () => api.post("/routines", { planId: plan.id }),
+    onSuccess: () => {
+      setRoutineMade(true);
+      void qc.invalidateQueries({ queryKey: ["routines"] });
+    },
+  });
   const undo = useMutation({
     mutationFn: () => api.post<Plan>(`/coach/plans/${plan.id}/undo`),
     onSuccess: (p) => {
@@ -723,6 +732,21 @@ function PlanView({
           {revise.isPending ? "Ajustando..." : "Ajustar com IA"}
         </Button>
       </section>
+      {plan.kind === "workout" && (
+        <>
+          <Button
+            className="mt-4 w-full"
+            loading={toRoutine.isPending}
+            disabled={routineMade}
+            onClick={() => toRoutine.mutate()}
+          >
+            {routineMade
+              ? "✓ Virou sua rotina (Perfil → Treinos)"
+              : "📋 Usar como minha rotina de treino"}
+          </Button>
+          <ErrorText error={toRoutine.error} />
+        </>
+      )}
       <Button variant="soft" className="mt-4 w-full" onClick={onRename}>
         ✏️ Renomear plano
       </Button>

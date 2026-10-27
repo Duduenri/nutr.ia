@@ -126,6 +126,7 @@ model User {
   bodyMeasures        BodyMeasure[]
   progressPhotos      ProgressPhoto[]
   shoppingLists       ShoppingList[]
+  routines            WorkoutRoutine[]
 }
 
 model Food {
@@ -571,4 +572,16 @@ model ShoppingList {
   updatedAt DateTime @updatedAt
 
   @@index([userId, createdAt])
+}
+
+model WorkoutRoutine {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  days      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

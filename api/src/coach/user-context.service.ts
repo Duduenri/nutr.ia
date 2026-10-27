@@ -152,6 +152,24 @@ export class UserContextService {
       })
       .join('\n');
 
+    const routine = await this.prisma.workoutRoutine.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
+    const routineText = routine
+      ? `Rotina de treino fixa ("${routine.name}"):\n${(
+          routine.days as {
+            label: string;
+            focus: string;
+            exercises: { name: string; sets: number; reps: string }[];
+          }[]
+        )
+          .map(
+            (d) =>
+              `${d.label}${d.focus ? ` (${d.focus})` : ''}: ${d.exercises.map((e) => `${e.name} ${e.sets}x${e.reps}`).join(', ')}`,
+          )
+          .join('\n')}`
+      : null;
     const adaptive = await this.adaptive.estimate(userId, todayRaw);
     const energy =
       adaptive.tdee !== null && adaptive.status === 'ready'
@@ -164,7 +182,8 @@ export class UserContextService {
       history,
       exams: exams || undefined,
       material: material || undefined,
-      training: training || undefined,
+      training:
+        [routineText, training].filter(Boolean).join('\n\n') || undefined,
     };
   }
 }

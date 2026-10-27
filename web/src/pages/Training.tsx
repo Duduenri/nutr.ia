@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { RoutineButton } from "../components/Routines";
 import { StrengthProgress } from "../components/StrengthProgress";
 import { Card, fmt, Segmented, Spinner } from "../components/ui";
 import { api, type TrainingHistory } from "../lib/api";
@@ -132,22 +133,26 @@ export function TrainingTab() {
   }
   if (all.length === 0) {
     return (
-      <Card className="text-center">
-        <div className="text-5xl">🏃‍♀️</div>
-        <h3 className="mt-2 text-lg font-extrabold">
-          Seus treinos aparecem aqui
-        </h3>
-        <p className="mt-1 text-sm text-ink/60">
-          Registre atividades no Diário (com distância, pra corrida e caminhada)
-          e acompanhe a evolução: tempo por semana, ritmo, recordes.
-        </p>
-        <Link
-          to="/"
-          className="mt-4 inline-block rounded-full bg-ink px-6 py-3 font-bold text-white"
-        >
-          Ir pro Diário
-        </Link>
-      </Card>
+      <div className="space-y-4">
+        <RoutineButton />
+        <Card className="text-center">
+          <div className="text-5xl">🏃‍♀️</div>
+          <h3 className="mt-2 text-lg font-extrabold">
+            Seus treinos aparecem aqui
+          </h3>
+          <p className="mt-1 text-sm text-ink/60">
+            Registre atividades no Diário (com distância, pra corrida e
+            caminhada) e acompanhe a evolução: tempo por semana, ritmo,
+            recordes.
+          </p>
+          <Link
+            to="/"
+            className="mt-4 inline-block rounded-full bg-ink px-6 py-3 font-bold text-white"
+          >
+            Ir pro Diário
+          </Link>
+        </Card>
+      </div>
     );
   }
 
@@ -245,6 +250,7 @@ export function TrainingTab() {
 
   return (
     <div className="space-y-4 pb-4">
+      <RoutineButton />
       {sports.length > 1 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {["all", ...sports].map((s) => (

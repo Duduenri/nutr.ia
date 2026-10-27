@@ -29,6 +29,7 @@ import { PhotosService } from './photos/photos.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { AdaptiveService } from './profile/adaptive.service';
 import { ProfileController } from './profile/profile.controller';
+import { RoutinesController } from './training/routines.controller';
 import { PushController } from './push/push.controller';
 import { PushService } from './push/push.service';
 import { RemindersService } from './push/reminders.service';
@@ -48,6 +49,7 @@ import { SupplementsController } from './supplements/supplements.controller';
   controllers: [
     AuthController,
     ProfileController,
+    RoutinesController,
     DiaryController,
     FoodsController,
     AiController,

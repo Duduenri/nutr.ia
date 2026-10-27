@@ -614,3 +614,26 @@ export interface TrainingHistory {
   }[];
   steps: { date: string; steps: number }[];
 }
+
+export type Weekday = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+
+export interface RoutineExercise {
+  name: string;
+  sets: number;
+  reps: string;
+  repsTarget: number;
+}
+
+export interface RoutineDay {
+  label: string;
+  focus: string;
+  weekday: Weekday | null;
+  exercises: RoutineExercise[];
+}
+
+export interface Routine {
+  id: string;
+  name: string;
+  days: RoutineDay[];
+  updatedAt: string;
+}

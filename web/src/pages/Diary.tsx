@@ -19,6 +19,7 @@ import {
   MEAL_LABEL,
   MICRO_LABEL,
   type Diary,
+  type Routine,
   type TrainingHistory,
   type Entry,
   type MealType,
@@ -31,6 +32,7 @@ import {
   useWeightKg,
 } from "../lib/exercise";
 import { dayLabel, shiftDay, today } from "../lib/date";
+import { useRoutines } from "../lib/routines";
 import { ExercisesEditor } from "../components/Exercises";
 import {
   DISTANCE_SPORTS,
@@ -38,6 +40,7 @@ import {
   fromDraft,
   STRENGTH_SPORTS,
   toDraft,
+  type Exercise,
   type ExerciseDraft,
   formatDuration as formatTrainingTime,
   formatKm,
@@ -824,6 +827,7 @@ interface ActivityEstimate {
 }
 
 function Activities({ diary, date }: { diary: Diary; date: string }) {
+  const qc = useQueryClient();
   const invalidate = useInvalidateDay();
   const weightKg = useWeightKg();
   const [open, setOpen] = useState(false);
@@ -844,17 +848,18 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
   const knownExercises = [
     ...new Set(pastStrength.flatMap((a) => a.exercises!.map((e) => e.name))),
   ];
-  const [planId, setPlanId] = useState<string | null>(null);
-  const { data: workoutPlans, isFetching: loadingPlan } = useQuery({
-    queryKey: ["workout-plans", planId],
-    queryFn: () =>
-      api.get<WorkoutPlans>(
-        `/coach/workout-plans${planId ? `?id=${planId}` : ""}`,
-      ),
-    enabled: open && isStrength,
-    staleTime: 5 * 60_000,
-  });
-  const [planDay, setPlanDay] = useState<string | null>(null);
+  const { data: routines, isLoading: loadingRoutines } = useRoutines(
+    open && isStrength,
+  );
+  const [routineId, setRoutineId] = useState<string | null>(null);
+  const routine =
+    routines?.find((r) => r.id === routineId) ?? routines?.[0] ?? null;
+  const [planDay, setPlanDay] = useState<number | null>(null);
+  const [routineUpdate, setRoutineUpdate] = useState<{
+    routine: Routine;
+    dayIndex: number;
+    exercises: Exercise[];
+  } | null>(null);
   const lastKg = (name: string) => {
     const k = name.trim().toLowerCase();
     for (const a of [...pastStrength].reverse()) {
@@ -864,8 +869,9 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     }
     return "";
   };
-  const pickPlanDay = (day: WorkoutPlan["days"][number]) => {
-    setPlanDay(day.label);
+  const pickPlanDay = (index: number) => {
+    const day = routine!.days[index];
+    setPlanDay(index);
     setExercises(
       day.exercises.map((e) => ({
         name: e.name,
@@ -950,8 +956,54 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
         : api.post("/activities", body);
     },
     onSuccess: () => {
+      if (routine && planDay !== null && !editingId) {
+        const logged = fromDraft(exercises);
+        const day = routine.days[planDay];
+        const sig = (list: { name: string; sets: number }[]) =>
+          list.map((e) => `${e.name.trim().toLowerCase()}:${e.sets}`).join("|");
+        if (
+          day &&
+          logged.length &&
+          sig(logged.map((e) => ({ name: e.name, sets: e.sets.length }))) !==
+            sig(day.exercises)
+        ) {
+          setRoutineUpdate({ routine, dayIndex: planDay, exercises: logged });
+        }
+      }
       invalidate();
       close();
+    },
+  });
+  const updateRoutine = useMutation({
+    mutationFn: (u: NonNullable<typeof routineUpdate>) => {
+      const day = u.routine.days[u.dayIndex];
+      const days = u.routine.days.map((d, i) =>
+        i !== u.dayIndex
+          ? d
+          : {
+              ...d,
+              exercises: u.exercises.map((e) => {
+                const prev = day.exercises.find(
+                  (x) =>
+                    x.name.trim().toLowerCase() === e.name.trim().toLowerCase(),
+                );
+                return {
+                  name: e.name,
+                  sets: Math.min(10, e.sets.length),
+                  reps: prev?.reps ?? String(e.sets[0].reps),
+                  repsTarget: prev?.repsTarget ?? e.sets[0].reps,
+                };
+              }),
+            },
+      );
+      return api.put(`/routines/${u.routine.id}`, {
+        name: u.routine.name,
+        days,
+      });
+    },
+    onSuccess: () => {
+      setRoutineUpdate(null);
+      void qc.invalidateQueries({ queryKey: ["routines"] });
     },
   });
   const remove = useMutation({
@@ -1048,6 +1100,37 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
           </li>
         ))}
       </ul>
+      {routineUpdate && (
+        <div className="mb-3 rounded-2xl bg-mint-50 p-3">
+          <p className="text-sm font-bold">
+            Você mudou o treino de{" "}
+            {routineUpdate.routine.days[routineUpdate.dayIndex]?.label}.
+            Atualizar sua rotina com esse treino?
+          </p>
+          <p className="mt-1 text-xs text-ink/60">
+            {routineUpdate.exercises
+              .map((e) => `${e.name} ${e.sets.length}x`)
+              .join(" · ")}
+          </p>
+          <ErrorText error={updateRoutine.error} />
+          <div className="mt-2 flex gap-2">
+            <Button
+              className="flex-1 py-2"
+              loading={updateRoutine.isPending}
+              onClick={() => updateRoutine.mutate(routineUpdate)}
+            >
+              Atualizar rotina
+            </Button>
+            <Button
+              variant="ghost"
+              className="py-2"
+              onClick={() => setRoutineUpdate(null)}
+            >
+              Não
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => setOpen(true)}>
           Adicionar atividade
@@ -1127,13 +1210,14 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
               )}
             </Field>
           )}
-          {isStrength && workoutPlans && (
-            <WorkoutPlanDays
-              data={workoutPlans}
-              loading={loadingPlan}
+          {isStrength && (
+            <RoutineDays
+              routines={routines ?? []}
+              routine={routine}
+              loading={loadingRoutines}
               selected={planDay}
-              onPlan={(id) => {
-                setPlanId(id);
+              onRoutine={(id) => {
+                setRoutineId(id);
                 setPlanDay(null);
               }}
               onPick={pickPlanDay}
@@ -1275,49 +1359,30 @@ function StepsSheet({
   );
 }
 
-interface WorkoutPlan {
-  id: string;
-  title: string;
-  days: {
-    weekday: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN" | null;
-    label: string;
-    focus: string;
-    exercises: {
-      name: string;
-      sets: number;
-      reps: string;
-      repsTarget: number;
-    }[];
-  }[];
-}
-
-interface WorkoutPlans {
-  plans: { id: string; title: string; createdAt: string }[];
-  selected: WorkoutPlan | null;
-}
-
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-function WorkoutPlanDays({
-  data,
+function RoutineDays({
+  routines,
+  routine,
   loading,
   selected,
-  onPlan,
+  onRoutine,
   onPick,
 }: {
-  data: WorkoutPlans;
+  routines: Routine[];
+  routine: Routine | null;
   loading: boolean;
-  selected: string | null;
-  onPlan: (id: string) => void;
-  onPick: (day: WorkoutPlan["days"][number]) => void;
+  selected: number | null;
+  onRoutine: (id: string) => void;
+  onPick: (index: number) => void;
 }) {
-  const plan = data.selected;
-  if (!plan || plan.days.length === 0) {
+  if (loading) return <Spinner />;
+  if (!routine || routine.days.length === 0) {
     return (
       <p className="rounded-2xl bg-soft px-4 py-3 text-sm text-ink/60">
-        📋 Tem um plano de treino? Crie no{" "}
-        <b>Coach → Planos → Plano de treino</b> e aqui é só escolher o dia pra
-        já vir com os exercícios.
+        📋 Monte sua rotina de treino em{" "}
+        <b>Perfil → ⚙️ → Minha rotina de treino</b> (ou use um plano do Coach) e
+        aqui é só escolher o dia.
       </p>
     );
   }
@@ -1325,38 +1390,34 @@ function WorkoutPlanDays({
   return (
     <div>
       <span className="mb-1 block text-sm font-semibold text-ink/70">
-        📋 Usar um plano de treino (opcional)
+        📋 Usar minha rotina (opcional)
       </span>
-      {data.plans.length > 1 && (
+      {routines.length > 1 && (
         <div className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">
-          {data.plans.map((p) => (
+          {routines.map((r) => (
             <button
-              key={p.id}
-              onClick={() => onPlan(p.id)}
+              key={r.id}
+              onClick={() => onRoutine(r.id)}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
-                p.id === plan.id ? "bg-ink text-white" : "bg-soft"
+                r.id === routine.id ? "bg-ink text-white" : "bg-soft"
               }`}
             >
-              {p.title} ·{" "}
-              {new Date(p.createdAt).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-              })}
+              {r.name}
             </button>
           ))}
         </div>
       )}
       <span className="mb-1 block text-xs font-bold text-ink/50">
-        Qual dia você treinou?{loading ? " Carregando…" : ""}
+        Qual dia você treinou?
       </span>
       <div className="grid grid-cols-2 gap-2">
-        {plan.days.map((d) => {
+        {routine.days.map((d, i) => {
           const isToday = d.weekday === today;
-          const on = selected === d.label;
+          const on = selected === i;
           return (
             <button
-              key={d.label}
-              onClick={() => onPick(d)}
+              key={i}
+              onClick={() => onPick(i)}
               className={`rounded-2xl px-3 py-2 text-left ${
                 on
                   ? "bg-ink text-white"
@@ -1377,13 +1438,14 @@ function WorkoutPlanDays({
               <span
                 className={`block truncate text-xs ${on ? "text-white/70" : "text-ink/50"}`}
               >
-                {d.focus} · {d.exercises.length} exercícios
+                {d.focus ? `${d.focus} · ` : ""}
+                {d.exercises.length} exercícios
               </span>
             </button>
           );
         })}
       </div>
-      {selected && (
+      {selected !== null && (
         <p className="mt-1 text-xs text-ink/50">
           Já preenchi com o último peso que você usou em cada exercício. Ajuste
           as cargas e as repetições que fez.

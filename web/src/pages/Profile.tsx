@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { AdaptiveCard } from "../components/AdaptiveCard";
 import { BodyCards } from "../components/Body";
+import { RoutineManager } from "../components/Routines";
 import { ProfileForm } from "../components/ProfileForm";
 import { WaterReminderForm } from "../components/Reminders";
 import { TrainingTab } from "./Training";
@@ -695,7 +696,7 @@ function SettingsSheet({
 }) {
   const qc = useQueryClient();
   const [section, setSection] = useState<
-    "menu" | "profile" | "targets" | "steps" | "reminders"
+    "menu" | "profile" | "targets" | "steps" | "reminders" | "routine"
   >("menu");
   const close = () => {
     setSection("menu");
@@ -720,6 +721,7 @@ function SettingsSheet({
           targets: "Metas diárias",
           steps: "Passos do iPhone",
           reminders: "Notificações",
+          routine: "Minha rotina de treino",
         }[section]
       }
     >
@@ -731,6 +733,7 @@ function SettingsSheet({
                 ["profile", "👤 Meus dados e objetivo"],
                 ["targets", "🎯 Ajustar metas e copo de água"],
                 ["reminders", "🔔 Notificações e lembrete de água"],
+                ["routine", "🏋️ Minha rotina de treino"],
                 ["steps", "👟 Importar passos do iPhone"],
               ] as const
             ).map(([id, label]) => (
@@ -764,6 +767,7 @@ function SettingsSheet({
         )}
         {section === "steps" && <StepsHelp token={profile.stepsToken} />}
         {section === "reminders" && <WaterReminderForm onDone={close} />}
+        {section === "routine" && <RoutineManager />}
       </div>
     </Sheet>
   );
