@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AdaptiveCard } from "../components/AdaptiveCard";
 import { BodyCards } from "../components/Body";
 import { ProfileForm } from "../components/ProfileForm";
 import { WaterReminderForm } from "../components/Reminders";
@@ -401,6 +402,7 @@ function NutritionTab({ profile }: { profile: Profile }) {
 
   return (
     <>
+      <AdaptiveCard />
       <Segmented
         options={[
           { value: "7", label: "7 dias" },

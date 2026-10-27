@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { sumEntries } from '../diary/diary.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdaptiveService } from '../profile/adaptive.service';
 import { ageFrom } from '../profile/nutrition';
 
 interface Exercise {
@@ -17,7 +18,10 @@ const GOAL_LABEL = {
 
 @Injectable()
 export class UserContextService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adaptive: AdaptiveService,
+  ) {}
 
   async build(userId: string, todayRaw: string) {
     const today = parseDay(todayRaw.slice(0, 10));
@@ -148,8 +152,14 @@ export class UserContextService {
       })
       .join('\n');
 
+    const adaptive = await this.adaptive.estimate(userId, todayRaw);
+    const energy =
+      adaptive.tdee !== null && adaptive.status === 'ready'
+        ? `Gasto real estimado pelos registros das últimas 4 semanas: ${adaptive.tdee} kcal/dia (média ingerida ${adaptive.avgIntake} kcal, peso variando ${adaptive.weeklyChangeKg} kg/semana; a fórmula estimava ${adaptive.formulaTdee} kcal). Use isso ao sugerir metas de calorias.`
+        : null;
+
     return {
-      profile,
+      profile: energy ? `${profile}\n${energy}` : profile,
       today: todayText,
       history,
       exams: exams || undefined,

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -199,6 +200,16 @@ class ActivityDto extends EstimateActivityDto {
   @IsInt()
   @Min(0)
   kcal!: number;
+}
+
+class StepsDto {
+  @IsDateString()
+  date!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(100_000)
+  steps!: number;
 }
 
 class NoteDto {
@@ -441,6 +452,21 @@ export class DiaryController {
   async deleteNote(@UserId() userId: string, @Param('id') id: string) {
     await this.assertOwn(this.prisma.note.findFirst({ where: { id, userId } }));
     await this.prisma.note.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  @Put('steps')
+  async setSteps(@UserId() userId: string, @Body() dto: StepsDto) {
+    const date = parseDay(dto.date.slice(0, 10));
+    if (dto.steps === 0) {
+      await this.prisma.dailySteps.deleteMany({ where: { userId, date } });
+      return { ok: true };
+    }
+    await this.prisma.dailySteps.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, steps: dto.steps },
+      update: { steps: dto.steps },
+    });
     return { ok: true };
   }
 

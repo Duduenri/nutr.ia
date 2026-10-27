@@ -27,6 +27,7 @@ import { MissionsController } from './missions/missions.controller';
 import { PhotosController } from './photos/photos.controller';
 import { PhotosService } from './photos/photos.service';
 import { PrismaModule } from './prisma/prisma.service';
+import { AdaptiveService } from './profile/adaptive.service';
 import { ProfileController } from './profile/profile.controller';
 import { PushController } from './push/push.controller';
 import { PushService } from './push/push.service';
@@ -73,6 +74,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     PhotosService,
     DiaryService,
     UserContextService,
+    AdaptiveService,
     GameService,
     FriendsService,
     ChallengesService,

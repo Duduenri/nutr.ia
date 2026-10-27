@@ -890,6 +890,7 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     setForm(next);
   };
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [stepsOpen, setStepsOpen] = useState(false);
   const close = () => {
     setOpen(false);
     setForm(EMPTY_ACTIVITY);
@@ -968,9 +969,16 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
       )}
       <ul className="my-2 space-y-1">
         {diary.steps > 0 && (
-          <li className="flex justify-between rounded-2xl bg-soft px-3 py-2">
-            <span className="font-bold">👟 {fmt(diary.steps)} passos</span>
-            <span className="text-ink/60">{fmt(diary.steps * 0.04)} kcal</span>
+          <li>
+            <button
+              onClick={() => setStepsOpen(true)}
+              className="flex w-full justify-between rounded-2xl bg-soft px-3 py-2 text-left"
+            >
+              <span className="font-bold">👟 {fmt(diary.steps)} passos</span>
+              <span className="text-ink/60">
+                {fmt(diary.steps * KCAL_PER_STEP)} kcal ✏️
+              </span>
+            </button>
           </li>
         )}
         {diary.activities.map((a) => (
@@ -1033,9 +1041,20 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
           </li>
         ))}
       </ul>
-      <Button className="w-full" onClick={() => setOpen(true)}>
-        Adicionar atividade
-      </Button>
+      <div className="flex gap-2">
+        <Button className="flex-1" onClick={() => setOpen(true)}>
+          Adicionar atividade
+        </Button>
+        <Button variant="soft" onClick={() => setStepsOpen(true)}>
+          👟 Passos
+        </Button>
+      </div>
+      <StepsSheet
+        open={stepsOpen}
+        onClose={() => setStepsOpen(false)}
+        date={date}
+        current={diary.steps}
+      />
       <Sheet
         open={open}
         onClose={close}
@@ -1172,6 +1191,80 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
         </div>
       </Sheet>
     </Card>
+  );
+}
+
+const KCAL_PER_STEP = 0.04;
+
+function StepsSheet({
+  open,
+  onClose,
+  date,
+  current,
+}: {
+  open: boolean;
+  onClose: () => void;
+  date: string;
+  current: number;
+}) {
+  const invalidate = useInvalidateDay();
+  const [value, setValue] = useState("");
+  const [key, setKey] = useState<string | null>(null);
+  const k = open ? `${date}:${current}` : null;
+  if (k !== key) {
+    setKey(k);
+    setValue(current ? String(current) : "");
+  }
+  const steps = parseInt(value.replace(/\D/g, ""), 10) || 0;
+  const save = useMutation({
+    mutationFn: (n: number) => api.put("/steps", { date, steps: n }),
+    onSuccess: () => {
+      invalidate();
+      onClose();
+    },
+  });
+
+  return (
+    <Sheet open={open} onClose={onClose} title="👟 Passos do dia">
+      <div className="space-y-3 pb-6">
+        <p className="text-sm text-ink/60">
+          Veja no app Saúde ou Fitness do celular (Passos → hoje) e digite o
+          total do dia.
+        </p>
+        <input
+          className={`${inputClass} text-center text-3xl font-extrabold`}
+          inputMode="numeric"
+          placeholder="0"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        {steps > 0 && (
+          <p className="text-center text-sm font-bold text-mint-500">
+            ≈ {fmt(steps * KCAL_PER_STEP)} kcal gastas
+          </p>
+        )}
+        <ErrorText error={save.error} />
+        <Button
+          className="w-full"
+          loading={save.isPending}
+          disabled={steps <= 0 || steps > 100_000}
+          onClick={() => save.mutate(steps)}
+        >
+          Salvar passos
+        </Button>
+        {current > 0 && (
+          <Button
+            variant="ghost"
+            className="w-full"
+            disabled={save.isPending}
+            onClick={() => save.mutate(0)}
+          >
+            Apagar passos do dia
+          </Button>
+        )}
+      </div>
+    </Sheet>
   );
 }
 

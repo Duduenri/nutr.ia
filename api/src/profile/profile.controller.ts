@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   NotFoundException,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ActivityLevel, Goal, Sex, SurgeryType, User } from '@prisma/client';
@@ -23,6 +25,7 @@ import {
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdaptiveService } from './adaptive.service';
 import { computeTargets, goalPlan } from './nutrition';
 
 class UpdateProfileDto {
@@ -116,7 +119,34 @@ class OverrideTargetsDto {
 @Controller('profile')
 @UseGuards(AuthGuard)
 export class ProfileController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adaptive: AdaptiveService,
+  ) {}
+
+  @Get('adaptive')
+  adaptiveEstimate(@UserId() userId: string, @Query('today') today: string) {
+    parseDay(today);
+    return this.adaptive.estimate(userId, today);
+  }
+
+  @Post('adaptive/apply')
+  async applyAdaptive(@UserId() userId: string, @Query('today') today: string) {
+    parseDay(today);
+    const estimate = await this.adaptive.estimate(userId, today);
+    if (estimate.status !== 'ready' || !estimate.suggested) {
+      throw new BadRequestException('Ainda não há dados suficientes');
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        kcalTarget: estimate.suggested.kcal,
+        carbsTarget: estimate.suggested.carbs,
+        fatTarget: estimate.suggested.fat,
+      },
+    });
+    return this.get(userId);
+  }
 
   @Get()
   async get(@UserId() userId: string) {

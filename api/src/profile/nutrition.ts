@@ -14,13 +14,13 @@ const PROTEIN_G_PER_KG: Record<Goal, number> = {
   GAIN: 1.8,
 };
 
-const KCAL_ADJUST: Record<Goal, number> = {
+export const KCAL_ADJUST: Record<Goal, number> = {
   LOSE: -500,
   MAINTAIN: 0,
   GAIN: 300,
 };
 
-const KCAL_PER_KG = 7700;
+export const KCAL_PER_KG = 7700;
 const DAY_MS = 86_400_000;
 
 export interface GoalPlan {
@@ -104,24 +104,52 @@ export function ageFrom(birthDate: Date, now = new Date()): number {
 }
 
 // Mifflin-St Jeor
-export function computeTargets(input: TargetInput): Targets {
+export function formulaTdee(
+  input: Pick<
+    TargetInput,
+    'sex' | 'birthDate' | 'heightCm' | 'weightKg' | 'activityLevel'
+  >,
+): number {
   const age = ageFrom(input.birthDate);
   const bmr =
     10 * input.weightKg +
     6.25 * input.heightCm -
     5 * age +
     (input.sex === 'MALE' ? 5 : -161);
-  const tdee = bmr * ACTIVITY_FACTOR[input.activityLevel];
-  const floor = input.sex === 'MALE' ? 1500 : 1200;
+  return bmr * ACTIVITY_FACTOR[input.activityLevel];
+}
+
+export function kcalFloor(sex: Sex): number {
+  return sex === 'MALE' ? 1500 : 1200;
+}
+
+export function goalAdjust(
+  input: Pick<
+    TargetInput,
+    'goal' | 'weightKg' | 'targetWeightKg' | 'targetDate'
+  >,
+): number {
   const plan =
     input.goal !== 'MAINTAIN' && input.targetWeightKg && input.targetDate
       ? goalPlan(input.weightKg, input.targetWeightKg, input.targetDate)
       : null;
-  const adjust =
-    plan && plan.dailyKcalAdjust !== 0
-      ? plan.dailyKcalAdjust
-      : KCAL_ADJUST[input.goal];
-  const kcal = Math.max(floor, Math.round(tdee + adjust));
+  return plan && plan.dailyKcalAdjust !== 0
+    ? plan.dailyKcalAdjust
+    : KCAL_ADJUST[input.goal];
+}
+
+export function splitMacros(kcal: number, protein: number) {
+  const fat = Math.round((kcal * 0.27) / 9);
+  const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+  return { fat, carbs };
+}
+
+export function computeTargets(input: TargetInput): Targets {
+  const tdee = formulaTdee(input);
+  const kcal = Math.max(
+    kcalFloor(input.sex),
+    Math.round(tdee + goalAdjust(input)),
+  );
 
   const proteinBaseKg =
     input.goal === 'LOSE' && input.targetWeightKg
@@ -131,8 +159,7 @@ export function computeTargets(input: TargetInput): Targets {
   const protein = input.bariatric
     ? Math.min(90, Math.max(60, Math.round(idealWeightKg * 1.2)))
     : Math.round(proteinBaseKg * PROTEIN_G_PER_KG[input.goal]);
-  const fat = Math.round((kcal * 0.27) / 9);
-  const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+  const { fat, carbs } = splitMacros(kcal, protein);
 
   return {
     kcalTarget: kcal,
