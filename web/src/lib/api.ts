@@ -41,6 +41,7 @@ export interface Profile {
   fiberTarget: number | null;
   waterTargetMl: number | null;
   cupSizeMl: number;
+  exerciseCredit: number;
   stepsToken: string;
   onboarded: boolean;
   createdAt: string;
@@ -123,6 +124,7 @@ export interface Diary {
     fiber: number | null;
     waterMl: number | null;
     cupSizeMl: number;
+    exerciseCredit: number;
   };
   totals: {
     kcal: number;
@@ -133,6 +135,7 @@ export interface Diary {
     micros: Micros;
   };
   burned: number;
+  burnedCredit: number;
   steps: number;
   meals: {
     meal: MealType;

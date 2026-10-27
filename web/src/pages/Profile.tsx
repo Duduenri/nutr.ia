@@ -785,18 +785,19 @@ function TargetsForm({
     waterTargetMl: String(profile.waterTargetMl ?? ""),
     cupSizeMl: String(profile.cupSizeMl),
   });
+  const [credit, setCredit] = useState(String(profile.exerciseCredit));
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
     setF({ ...f, [k]: e.target.value });
   const save = useMutation({
     mutationFn: async () => {
       const { cupSizeMl, ...targets } = f;
       await api.patch("/profile", { cupSizeMl: parseInt(cupSizeMl, 10) });
-      return api.patch<Profile>(
-        "/profile/targets",
-        Object.fromEntries(
+      return api.patch<Profile>("/profile/targets", {
+        ...Object.fromEntries(
           Object.entries(targets).map(([k, v]) => [k, parseInt(v, 10)]),
         ),
-      );
+        exerciseCredit: parseInt(credit, 10),
+      });
     },
     onSuccess: () => {
       void qc.invalidateQueries();
@@ -862,6 +863,27 @@ function TargetsForm({
             onChange={set("cupSizeMl")}
           />
         </Field>
+      </div>
+      <div className="rounded-2xl border border-slate-200 p-3">
+        <p className="mb-2 text-sm font-bold">
+          Somar calorias de exercícios e passos na meta do dia?
+        </p>
+        <Segmented
+          options={[
+            { value: "0", label: "Não" },
+            { value: "50", label: "Metade" },
+            { value: "100", label: "Tudo" },
+          ]}
+          value={credit}
+          onChange={setCredit}
+        />
+        <p className="mt-2 text-xs text-ink/60">
+          {credit === "0"
+            ? "O que você gastar treinando fica como déficit extra. Boa escolha se seu nível de atividade no perfil já conta seus treinos."
+            : credit === "50"
+              ? "Metade do gasto vira comida liberada: equilibra o déficit sem exagerar (os gastos estimados costumam ser maiores que os reais)."
+              : "Todo o gasto do exercício é liberado pra comer. Bom se seu nível de atividade no perfil for sedentário/leve."}
+        </p>
       </div>
       <ErrorText error={save.error ?? recalc.error} />
       <Button

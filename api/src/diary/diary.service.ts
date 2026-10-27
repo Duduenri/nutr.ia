@@ -95,9 +95,14 @@ export class DiaryService {
         fiber: user.fiberTarget,
         waterMl: user.waterTargetMl,
         cupSizeMl: user.cupSizeMl,
+        exerciseCredit: user.exerciseCredit,
       },
       totals: sumEntries(entries),
       burned: Math.round(activityKcal + stepsCount * KCAL_PER_STEP),
+      burnedCredit: Math.round(
+        ((activityKcal + stepsCount * KCAL_PER_STEP) * user.exerciseCredit) /
+          100,
+      ),
       steps: stepsCount,
       meals,
       water: {

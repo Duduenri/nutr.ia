@@ -81,6 +81,7 @@ model User {
   waterReminderEnd   String         @default("22:00")
   waterReminderEvery Int            @default(120)
   mealReminders      Boolean        @default(true)
+  exerciseCredit     Int            @default(100)
   friendCode         String?        @unique
   shareWeight        Boolean        @default(false)
   kcalTarget         Int?

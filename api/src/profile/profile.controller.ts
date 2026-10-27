@@ -114,6 +114,10 @@ class OverrideTargetsDto {
   @IsOptional()
   @IsInt()
   waterTargetMl?: number;
+
+  @IsOptional()
+  @IsIn([0, 50, 100])
+  exerciseCredit?: number;
 }
 
 @Controller('profile')

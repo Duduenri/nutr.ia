@@ -196,8 +196,8 @@ function Ring({ value, max }: { value: number; max: number }) {
 function Summary({ diary }: { diary: Diary }) {
   const [showMicros, setShowMicros] = useState(false);
   const [micro, setMicro] = useState<string | null>(null);
-  const { totals, targets, burned } = diary;
-  const remaining = Math.round(targets.kcal - totals.kcal + burned);
+  const { totals, targets, burned, burnedCredit } = diary;
+  const remaining = Math.round(targets.kcal - totals.kcal + burnedCredit);
   const macros = [
     {
       key: "carbs",
@@ -241,7 +241,7 @@ function Summary({ diary }: { diary: Diary }) {
           </button>
         </div>
         <div className="relative">
-          <Ring value={totals.kcal} max={targets.kcal + burned} />
+          <Ring value={totals.kcal} max={targets.kcal + burnedCredit} />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="text-3xl font-extrabold">
               {fmt(Math.abs(remaining))}
@@ -253,6 +253,13 @@ function Summary({ diary }: { diary: Diary }) {
         </div>
         <div className="w-24 text-center">
           <div className="text-2xl font-extrabold">{fmt(burned)}</div>
+          {burned > 0 && targets.exerciseCredit < 100 && (
+            <div className="text-[10px] font-bold leading-tight text-ink/50">
+              {targets.exerciseCredit === 0
+                ? "não soma na meta"
+                : `+${fmt(burnedCredit)} na meta`}
+            </div>
+          )}
           <div className="text-sm font-semibold text-ink/60">Gastas</div>
           {diary.steps > 0 && (
             <div className="text-xs text-ink/50">👟 {fmt(diary.steps)}</div>
@@ -1531,7 +1538,7 @@ function OverTargetCard({ diary, date }: { diary: Diary; date: string }) {
   const invalidate = useInvalidateDay();
   const weight = useWeightKg();
   const over = Math.round(
-    diary.totals.kcal - diary.targets.kcal - diary.burned,
+    diary.totals.kcal - diary.targets.kcal - diary.burnedCredit,
   );
   const add = useMutation({
     mutationFn: (a: { name: string; minutes: number; kcal: number }) =>
