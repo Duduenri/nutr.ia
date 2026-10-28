@@ -355,27 +355,32 @@ export interface CoachContext {
   exams?: string;
   material?: string;
   training?: string;
+  body?: string;
 }
 
 function toInput(history: ChatTurn[]): ResponseInputItem[] {
-  return history.map((turn): ResponseInputItem =>
-    turn.role === 'user' && turn.imageBase64
+  return history.map((turn): ResponseInputItem => {
+    const images = [
+      ...(turn.imageBase64 ? [turn.imageBase64] : []),
+      ...(turn.images ?? []),
+    ];
+    return turn.role === 'user' && images.length
       ? {
           role: 'user',
           content: [
-            {
-              type: 'input_image',
-              image_url: `data:image/jpeg;base64,${turn.imageBase64}`,
-              detail: 'auto',
-            },
+            ...images.map((b64) => ({
+              type: 'input_image' as const,
+              image_url: `data:image/jpeg;base64,${b64}`,
+              detail: 'auto' as const,
+            })),
             {
               type: 'input_text',
               text: turn.content || 'O que acha disso que vou comer?',
             },
           ],
         }
-      : { role: turn.role, content: turn.content },
-  );
+      : { role: turn.role, content: turn.content };
+  });
 }
 
 function coachSystem(context: CoachContext): string {
@@ -404,6 +409,14 @@ ${context.training}
 Essas são as cargas que ela já registrou: use-as ao falar de treino e progressão (ex.: sugerir aumentar 1–2,5 kg quando bater o topo das repetições) e não pergunte cargas que já estão aqui; pergunte só o que faltar.`
       : ''
   }${
+    context.body
+      ? `
+
+## Corpo (medidas e fotos de progresso registradas no perfil)
+${context.body}
+Quando as fotos de progresso vierem anexadas na mensagem, compare-as com cuidado (postura, definição, volume), sempre de forma respeitosa e motivadora.`
+      : ''
+  }${
     context.exams
       ? `
 
@@ -425,6 +438,7 @@ export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
   imageBase64?: string;
+  images?: string[];
 }
 
 @Injectable()

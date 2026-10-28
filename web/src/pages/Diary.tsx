@@ -911,6 +911,7 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     setExercises([]);
     setPlanDay(null);
     setEditingId(null);
+    setAutoPicked(false);
   };
   const startEdit = (a: Diary["activities"][number]) => {
     setForm({
@@ -925,6 +926,23 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     setEditingId(a.id);
     setOpen(true);
   };
+  const [autoPicked, setAutoPicked] = useState(false);
+  if (
+    open &&
+    isStrength &&
+    !autoPicked &&
+    routine &&
+    history &&
+    !editingId &&
+    planDay === null &&
+    exercises.length === 0
+  ) {
+    setAutoPicked(true);
+    const todayIndex = routine.days.findIndex(
+      (d) => d.weekday === WEEKDAYS[new Date().getDay()],
+    );
+    if (todayIndex >= 0) pickPlanDay(todayIndex);
+  }
 
   const distanceKm = parseFloat(form.distance.replace(",", ".")) || 0;
   const showDistance =
@@ -1220,16 +1238,27 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
                 setRoutineId(id);
                 setPlanDay(null);
               }}
-              onPick={pickPlanDay}
+              onPick={(i) => {
+                pickPlanDay(i);
+                setTimeout(
+                  () =>
+                    document
+                      .getElementById("exercise-editor")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                  50,
+                );
+              }}
             />
           )}
           {isStrength && (
-            <ExercisesEditor
-              value={exercises}
-              onChange={setExercises}
-              known={knownExercises}
-              last={lastWorkout}
-            />
+            <div id="exercise-editor" className="scroll-mt-4">
+              <ExercisesEditor
+                value={exercises}
+                onChange={setExercises}
+                known={knownExercises}
+                last={lastWorkout}
+              />
+            </div>
           )}
           <Field label="O que você fez? (opcional)">
             <textarea
@@ -1408,7 +1437,8 @@ function RoutineDays({
         </div>
       )}
       <span className="mb-1 block text-xs font-bold text-ink/50">
-        Qual dia você treinou?
+        Qual dia você treinou?{" "}
+        {selected === null && "Toque pra preencher os exercícios."}
       </span>
       <div className="grid grid-cols-2 gap-2">
         {routine.days.map((d, i) => {
@@ -1419,21 +1449,19 @@ function RoutineDays({
               key={i}
               onClick={() => onPick(i)}
               className={`rounded-2xl px-3 py-2 text-left ${
-                on
-                  ? "bg-ink text-white"
-                  : isToday
-                    ? "bg-mint-50 ring-2 ring-mint-400"
-                    : "bg-soft"
+                on ? "bg-ink text-white" : "bg-soft"
               }`}
             >
               <span className="block text-sm font-extrabold">
                 {d.label}
-                {isToday && !on && (
-                  <span className="text-xs font-bold text-mint-500">
-                    {" "}
-                    · hoje
+                {isToday && (
+                  <span
+                    className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${on ? "bg-white/20" : "bg-mint-100 text-mint-500"}`}
+                  >
+                    hoje
                   </span>
                 )}
+                {on && " ✓"}
               </span>
               <span
                 className={`block truncate text-xs ${on ? "text-white/70" : "text-ink/50"}`}

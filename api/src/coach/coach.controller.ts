@@ -35,6 +35,10 @@ import {
   type ChatTurn,
   type WorkoutStructure,
 } from '../ai/ai.service';
+import { readFile } from 'fs/promises';
+import { join, resolve } from 'path';
+import { requireEnv } from '../common/env';
+import { formatDay } from '../common/date';
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { PhotosService } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -66,6 +70,9 @@ function validTargets(
   }
   return Object.keys(out).length ? out : null;
 }
+
+const PROGRESS_WORDS =
+  /foto|evolu|progresso|f[íi]sico|shape|corpo|antes e depois|defini[çc][ãa]o|m[úu]sculo|barriga/i;
 
 class ProposalDto {
   @IsBoolean()
@@ -151,6 +158,8 @@ export class CoachController {
     private readonly photos: PhotosService,
   ) {}
 
+  private readonly uploadDir = resolve(requireEnv('UPLOAD_DIR'));
+
   @Get('messages')
   async messages(@UserId() userId: string) {
     const messages = await this.prisma.chatMessage.findMany({
@@ -198,6 +207,14 @@ export class CoachController {
     while (history.length && history[0].role !== 'user') {
       history.shift();
     }
+    if (PROGRESS_WORDS.test(content)) {
+      const attached = await this.progressPhotos(userId);
+      if (attached.images.length) {
+        const last = history[history.length - 1];
+        last.images = attached.images;
+        last.content = `[Anexei minhas fotos de progresso do perfil, em ordem: ${attached.dates.join(', ')}] ${last.content}`;
+      }
+    }
     const { reply, targets } = await this.ai.coachReply(
       await this.userContext.build(userId, dto.today),
       history,
@@ -216,6 +233,26 @@ export class CoachController {
           : {}),
       },
     });
+  }
+
+  private async progressPhotos(userId: string) {
+    const all = await this.prisma.progressPhoto.findMany({
+      where: { userId, path: { not: '' } },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+    });
+    const chosen = all.length <= 4 ? all : [all[0], ...all.slice(-3)];
+    const images: string[] = [];
+    const dates: string[] = [];
+    for (const p of chosen) {
+      try {
+        const buf = await readFile(join(this.uploadDir, p.path));
+        images.push(buf.toString('base64'));
+        dates.push(formatDay(p.date));
+      } catch {
+        continue;
+      }
+    }
+    return { images, dates };
   }
 
   @Post('messages/:id/proposal')

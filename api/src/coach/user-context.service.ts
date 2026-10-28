@@ -46,7 +46,7 @@ export class UserContextService {
       this.prisma.weightLog.findMany({
         where: { userId },
         orderBy: { date: 'desc' },
-        take: 5,
+        take: 10,
       }),
       this.prisma.fast.findFirst({ where: { userId, endAt: null } }),
       this.prisma.labResult.findMany({
@@ -170,6 +170,42 @@ export class UserContextService {
           )
           .join('\n')}`
       : null;
+    const [measures, photos] = await Promise.all([
+      this.prisma.bodyMeasure.findMany({
+        where: { userId },
+        orderBy: { date: 'asc' },
+      }),
+      this.prisma.progressPhoto.findMany({
+        where: { userId },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+        select: { date: true },
+      }),
+    ]);
+    const MEASURE_LABEL = {
+      waistCm: 'cintura',
+      hipCm: 'quadril',
+      chestCm: 'peito',
+      armCm: 'braço',
+      thighCm: 'coxa',
+      bodyFatPct: '% gordura',
+    } as const;
+    const body = [
+      ...measures.map(
+        (m) =>
+          `${formatDay(m.date)}: ${(
+            Object.keys(MEASURE_LABEL) as (keyof typeof MEASURE_LABEL)[]
+          )
+            .filter((k) => m[k] !== null)
+            .map(
+              (k) =>
+                `${MEASURE_LABEL[k]} ${m[k]}${k === 'bodyFatPct' ? '%' : ' cm'}`,
+            )
+            .join(', ')}`,
+      ),
+      photos.length
+        ? `Fotos de progresso no perfil (${photos.length}): ${photos.map((p) => formatDay(p.date)).join(', ')}. Elas são anexadas quando a pessoa fala de fotos/evolução do corpo.`
+        : 'Nenhuma foto de progresso no perfil ainda (ficam em Perfil → Peso → Fotos de progresso).',
+    ].join('\n');
     const adaptive = await this.adaptive.estimate(userId, todayRaw);
     const energy =
       adaptive.tdee !== null && adaptive.status === 'ready'
@@ -184,6 +220,7 @@ export class UserContextService {
       material: material || undefined,
       training:
         [routineText, training].filter(Boolean).join('\n\n') || undefined,
+      body,
     };
   }
 }
