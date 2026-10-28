@@ -24,6 +24,13 @@ export function ItemPreview({
 }) {
   if (item.slot === "garden")
     return <Svg markup={gardenItemSvg(item.id)} className={className} />;
+  if (item.slot === "scene")
+    return (
+      <Svg
+        markup={sceneSvg(Math.min(level, 3), [item.id])}
+        className={`${className} overflow-hidden rounded-2xl`}
+      />
+    );
   const base = equipped.filter(
     (id) => all.find((i) => i.id === id)?.slot === "color",
   );
@@ -35,7 +42,7 @@ export function ItemPreview({
   );
 }
 
-type Tab = "today" | "clothes" | "colors" | "garden";
+type Tab = "today" | "pets" | "clothes" | "colors" | "garden" | "scenes";
 
 export function ShopPage() {
   const navigate = useNavigate();
@@ -103,19 +110,21 @@ export function ShopPage() {
           <h1 className="font-serif text-3xl font-bold">Loja</h1>
           <GemBadge gems={shop?.gems ?? game?.gems ?? 0} />
         </div>
-        <div className="flex border-b border-slate-100 bg-white">
+        <div className="no-scrollbar flex overflow-x-auto border-b border-slate-100 bg-white">
           {(
             [
               ["today", "⏰ Hoje"],
+              ["pets", "🐾 Pets"],
               ["clothes", "👕 Roupas"],
               ["colors", "🎨 Cores"],
               ["garden", "🌻 Jardim"],
+              ["scenes", "🏝️ Cenários"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex-1 border-b-4 py-3 text-sm font-extrabold ${
+              className={`shrink-0 grow border-b-4 px-3 py-3 text-sm font-extrabold ${
                 tab === id
                   ? "border-peach-400"
                   : "border-transparent text-ink/50"
@@ -193,6 +202,24 @@ export function ShopPage() {
           </>
         )}
         {tab === "colors" && grid(items.filter((i) => i.slot === "color"))}
+        {tab === "pets" && (
+          <>
+            <p className="rounded-3xl border-2 border-slate-100 p-4 text-sm text-ink/60">
+              Transforme seu bichinho! Os pets são raros e caros: junte gemas
+              com missões, conquistas, jogos e desafios. Chapéus, óculos e cores
+              continuam valendo.
+            </p>
+            {grid(items.filter((i) => i.slot === "species"))}
+          </>
+        )}
+        {tab === "scenes" && (
+          <>
+            <p className="rounded-3xl border-2 border-slate-100 p-4 text-sm text-ink/60">
+              Mude o lugar onde seu bichinho mora. Os itens do jardim vão junto!
+            </p>
+            {grid(items.filter((i) => i.slot === "scene"))}
+          </>
+        )}
         {tab === "garden" && (
           <>
             <p className="rounded-3xl border-2 border-slate-100 p-4 text-sm text-ink/60">

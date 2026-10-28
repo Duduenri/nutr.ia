@@ -143,6 +143,19 @@ export function PetHomePage() {
           </Link>
         </div>
         <Link
+          to="/jogos"
+          className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-card"
+        >
+          <span className="text-3xl">🎮</span>
+          <span className="flex-1">
+            <span className="block font-extrabold">Jogos</span>
+            <span className="text-sm text-ink/60">
+              Termo e Sudoku do dia, sem anúncio · ganhe gemas
+            </span>
+          </span>
+          <span className="text-2xl text-ink/30">›</span>
+        </Link>
+        <Link
           to="/missoes"
           className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-card"
         >

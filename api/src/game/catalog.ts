@@ -1,4 +1,5 @@
-export type ItemSlot = 'hat' | 'glasses' | 'color' | 'garden';
+export type ItemSlot =
+  'hat' | 'glasses' | 'color' | 'garden' | 'species' | 'scene';
 
 export interface ShopItem {
   id: string;
@@ -240,6 +241,49 @@ export const ITEMS: ShopItem[] = [
     slot: 'garden',
     price: 800,
     minLevel: 6,
+  },
+  {
+    id: 'species_bunny',
+    name: 'Coelhinho',
+    slot: 'species',
+    price: 1500,
+    minLevel: 3,
+  },
+  {
+    id: 'species_cat',
+    name: 'Gatinho',
+    slot: 'species',
+    price: 1800,
+    minLevel: 3,
+  },
+  {
+    id: 'species_dog',
+    name: 'Cachorrinho',
+    slot: 'species',
+    price: 2000,
+    minLevel: 4,
+  },
+  {
+    id: 'scene_night',
+    name: 'Noite estrelada',
+    slot: 'scene',
+    price: 700,
+    minLevel: 2,
+  },
+  { id: 'scene_beach', name: 'Praia', slot: 'scene', price: 900, minLevel: 2 },
+  {
+    id: 'scene_snow',
+    name: 'Montanha nevada',
+    slot: 'scene',
+    price: 1000,
+    minLevel: 3,
+  },
+  {
+    id: 'scene_space',
+    name: 'Espaço sideral',
+    slot: 'scene',
+    price: 1500,
+    minLevel: 5,
   },
 ];
 

@@ -21,6 +21,15 @@ const CoachPage = lazy(() =>
 const RecipesPage = lazy(() =>
   import("./pages/Recipes").then((m) => ({ default: m.RecipesPage })),
 );
+const GamesPage = lazy(() =>
+  import("./pages/Games").then((m) => ({ default: m.GamesPage })),
+);
+const TermoPage = lazy(() =>
+  import("./pages/Games").then((m) => ({ default: m.TermoPage })),
+);
+const SudokuPage = lazy(() =>
+  import("./pages/Games").then((m) => ({ default: m.SudokuPage })),
+);
 const ShopPage = lazy(() =>
   import("./pages/Shop").then((m) => ({ default: m.ShopPage })),
 );
@@ -100,6 +109,9 @@ export default function App() {
       <Routes>
         <Route path="/adicionar" element={<AddFoodPage />} />
         <Route path="/loja" element={<ShopPage />} />
+        <Route path="/jogos" element={<GamesPage />} />
+        <Route path="/jogos/termo" element={<TermoPage />} />
+        <Route path="/jogos/sudoku" element={<SudokuPage />} />
         <Route path="/meus-itens" element={<WardrobePage />} />
         <Route element={<Layout />}>
           <Route index element={<DiaryPage />} />

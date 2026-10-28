@@ -18,3 +18,12 @@ export function addDays(date: Date, days: number): Date {
   d.setUTCDate(d.getUTCDate() + days);
   return d;
 }
+
+export function todayIn(timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}

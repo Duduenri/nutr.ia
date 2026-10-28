@@ -93,20 +93,106 @@ const GLASSES: Record<string, string> = {
   glasses_heart: `<path d="M86 162 L73 149 Q68 141 76 138 Q82 136 86 142 Q90 136 96 138 Q104 141 99 149 Z" fill="#ff5c8a" opacity="0.9"/><path d="M114 162 L101 149 Q96 141 104 138 Q110 136 114 142 Q118 136 124 138 Q132 141 127 149 Z" fill="#ff5c8a" opacity="0.9"/>`,
 };
 
+export const SPECIES = ["species_bunny", "species_dog", "species_cat"];
+export const SCENES = [
+  "scene_beach",
+  "scene_night",
+  "scene_snow",
+  "scene_space",
+];
+
+function shade(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v: number) =>
+    Math.max(0, Math.min(255, Math.round(v + 255 * amount)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${ch(n >> 16)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
+}
+
+function sparkle(x: number, y: number, r: number, fill: string): string {
+  return `<path d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r} Z" fill="${fill}"/>`;
+}
+
+function evolutionBack(level: number, color: string): string {
+  let out = "";
+  if (level >= 9) {
+    out += `<ellipse cx="100" cy="150" rx="70" ry="56" fill="#ffd86b" opacity="0.18"/><ellipse cx="100" cy="150" rx="62" ry="48" fill="#ffd86b" opacity="0.18"/>`;
+  }
+  if (level >= 8) {
+    const wing = shade(color, 0.25);
+    out += `<path d="M54 140 Q24 112 30 150 Q34 172 58 160 Z" fill="${wing}" stroke="#fff" stroke-width="2"/><path d="M146 140 Q176 112 170 150 Q166 172 142 160 Z" fill="${wing}" stroke="#fff" stroke-width="2"/>`;
+  }
+  return out;
+}
+
+function evolutionFront(level: number, color: string): string {
+  let out = "";
+  if (level >= 5) {
+    const limb = shade(color, -0.12);
+    out += `<ellipse cx="50" cy="160" rx="9" ry="6" fill="${limb}" transform="rotate(-25 50 160)"/><ellipse cx="150" cy="160" rx="9" ry="6" fill="${limb}" transform="rotate(25 150 160)"/>`;
+    out += `<ellipse cx="82" cy="186" rx="11" ry="5" fill="${limb}"/><ellipse cx="118" cy="186" rx="11" ry="5" fill="${limb}"/>`;
+  }
+  if (level >= 6) {
+    out +=
+      sparkle(40, 112, 7, "#ffd86b") +
+      sparkle(164, 124, 5, "#ffd86b") +
+      sparkle(154, 92, 4, "#fff");
+  }
+  if (level >= 10) {
+    out += sparkle(30, 160, 5, "#fff") + sparkle(172, 172, 6, "#ffd86b");
+  }
+  return out;
+}
+
+function speciesBack(species: string | undefined, color: string): string {
+  const dark = shade(color, -0.15);
+  if (species === "species_bunny") {
+    return `<g transform="rotate(-10 82 116)"><ellipse cx="82" cy="84" rx="12" ry="32" fill="${color}"/><ellipse cx="82" cy="86" rx="6" ry="22" fill="#ffc9d6"/></g><g transform="rotate(10 118 116)"><ellipse cx="118" cy="84" rx="12" ry="32" fill="${color}"/><ellipse cx="118" cy="86" rx="6" ry="22" fill="#ffc9d6"/></g>`;
+  }
+  if (species === "species_cat") {
+    return `<path d="M60 126 L66 90 L90 116 Z" fill="${color}"/><path d="M66 120 L69 100 L82 115 Z" fill="#ffc9d6"/><path d="M140 126 L134 90 L110 116 Z" fill="${color}"/><path d="M134 120 L131 100 L118 115 Z" fill="#ffc9d6"/>`;
+  }
+  if (species === "species_dog") {
+    return `<ellipse cx="148" cy="188" rx="10" ry="5" fill="${dark}" transform="rotate(-30 148 188)"/>`;
+  }
+  return "";
+}
+
+function speciesFront(species: string | undefined, color: string): string {
+  const dark = shade(color, -0.18);
+  if (species === "species_dog") {
+    return `<ellipse cx="54" cy="140" rx="12" ry="24" fill="${dark}" transform="rotate(20 54 140)"/><ellipse cx="146" cy="140" rx="12" ry="24" fill="${dark}" transform="rotate(-20 146 140)"/><ellipse cx="100" cy="166" rx="18" ry="12" fill="#fff" opacity="0.9"/><ellipse cx="100" cy="159" rx="6" ry="4.5" fill="${INK}"/><path d="M100 163 V170 M93 172 Q100 176 107 172" stroke="${INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/><ellipse cx="100" cy="179" rx="5" ry="4" fill="#ff8fa8"/>`;
+  }
+  if (species === "species_cat") {
+    return `<path d="M96 160 L104 160 L100 165 Z" fill="#ff8fa8"/><path d="M72 162 L52 158 M72 167 L52 169 M128 162 L148 158 M128 167 L148 169" stroke="${INK}" stroke-width="1.5" opacity="0.6"/>`;
+  }
+  if (species === "species_bunny") {
+    return `<ellipse cx="100" cy="161" rx="4" ry="3" fill="#ff8fa8"/><rect x="96.5" y="166" width="7" height="7" rx="1.5" fill="#fff" stroke="#e5e7eb"/>`;
+  }
+  return "";
+}
+
 export function petGroup(level: number, equipped: string[]): string {
   const color =
     PET_COLORS[equipped.find((id) => id in PET_COLORS) ?? "color_pink"];
   const hat = equipped.find((id) => id in HATS);
   const glasses = equipped.find((id) => id in GLASSES);
-  return [
+  const species = equipped.find((id) => SPECIES.includes(id));
+  const scale = Math.min(1.12, 0.88 + (level - 1) * 0.03);
+  return `<g transform="translate(100 190) scale(${scale.toFixed(3)}) translate(-100 -190)">${[
     `<ellipse cx="100" cy="188" rx="44" ry="6" fill="#000" opacity="0.08"/>`,
+    evolutionBack(level, color),
+    speciesBack(species, color),
     `<ellipse cx="100" cy="150" rx="52" ry="38" fill="${color}"/>`,
     `<ellipse cx="82" cy="132" rx="14" ry="7" fill="#fff" opacity="0.25"/>`,
     face(level),
+    speciesFront(species, color),
+    evolutionFront(level, color),
     glasses ? GLASSES[glasses] : "",
     hat ? HATS[hat] : "",
-    sprout(level),
-  ].join("");
+    species ? "" : sprout(level),
+  ].join("")}</g>`;
 }
 
 export function petSvg(level: number, equipped: string[]): string {
@@ -249,28 +335,114 @@ const BACK_ORDER = [
   "garden_butterflies",
 ];
 
+function fenceRow(fill: string): string {
+  return (
+    `<rect x="0" y="244" width="390" height="8" fill="${fill}"/>` +
+    Array.from({ length: 14 })
+      .map(
+        (_, i) =>
+          `<rect x="${i * 30 - 4}" y="226" width="16" height="40" rx="8" fill="${fill}"/>`,
+      )
+      .join("")
+  );
+}
+
+const STARS = [
+  [30, 40],
+  [80, 90],
+  [140, 30],
+  [190, 70],
+  [240, 25],
+  [330, 60],
+  [360, 120],
+  [60, 150],
+  [200, 140],
+  [280, 110],
+  [110, 180],
+  [350, 190],
+  [20, 210],
+];
+
+function sceneLayers(scene: string | undefined): {
+  sky: string;
+  floor: string;
+} {
+  if (scene === "scene_beach") {
+    return {
+      sky: `<defs><linearGradient id="sky-beach" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd0f5"/><stop offset="1" stop-color="#d9f2fb"/></linearGradient><linearGradient id="sea-beach" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fa9e0"/><stop offset="1" stop-color="#8fd8f0"/></linearGradient></defs>
+<rect width="390" height="440" fill="url(#sky-beach)"/>
+<circle cx="300" cy="70" r="30" fill="#ffd23f" opacity="0.3"/><circle cx="300" cy="70" r="20" fill="#ffd86b"/>
+<g fill="#fff"><ellipse cx="80" cy="90" rx="28" ry="10"/><ellipse cx="92" cy="82" rx="14" ry="10"/></g>
+<rect x="0" y="196" width="390" height="70" fill="url(#sea-beach)"/>
+<path d="M0 214 Q20 208 40 214 T80 214 T120 214 T160 214 T200 214 T240 214 T280 214 T320 214 T360 214 T400 214" stroke="#fff" stroke-width="3" fill="none" opacity="0.7"/>
+<path d="M0 240 Q25 234 50 240 T100 240 T150 240 T200 240 T250 240 T300 240 T350 240 T400 240" stroke="#fff" stroke-width="2" fill="none" opacity="0.5"/>
+<g transform="translate(330 268)"><path d="M0 0 Q-6 -60 6 -110" stroke="#a0703f" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M6 -110 Q-30 -120 -48 -96 Q-24 -108 6 -104 Z M6 -110 Q40 -124 58 -98 Q32 -110 6 -104 Z M6 -110 Q-14 -140 -36 -136 Q-12 -124 6 -106 Z M6 -110 Q26 -142 50 -132 Q24 -122 6 -106 Z" fill="#4caf50"/><circle cx="2" cy="-104" r="5" fill="#8a5a2b"/><circle cx="12" cy="-102" r="5" fill="#8a5a2b"/></g>`,
+      floor: `<path d="M0 258 Q100 250 200 258 T390 256 L390 440 L0 440 Z" fill="#f5dfa3"/>
+<g fill="#e8c983"><ellipse cx="70" cy="320" rx="18" ry="4"/><ellipse cx="290" cy="380" rx="20" ry="4"/></g>
+<g transform="translate(52 400)"><path d="M0 0 Q8 -14 16 0 Z" fill="#ff9f8a"/><path d="M4 -1 L8 -10 M8 -1 L8 -11 M12 -1 L8 -10" stroke="#e8735c" stroke-width="1"/></g>
+<g transform="translate(340 330)">${sparkle(0, 0, 8, "#ffb38a")}</g>`,
+    };
+  }
+  if (scene === "scene_night") {
+    return {
+      sky: `<defs><linearGradient id="sky-night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2347"/><stop offset="1" stop-color="#3d4f8a"/></linearGradient></defs>
+<rect width="390" height="440" fill="url(#sky-night)"/>
+${STARS.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.6 : 2.6}" fill="#fff" opacity="${i % 2 ? 0.7 : 1}"/>`).join("")}
+<circle cx="300" cy="80" r="30" fill="#fff6c9" opacity="0.2"/><circle cx="300" cy="80" r="20" fill="#fff6c9"/><circle cx="292" cy="74" r="4" fill="#e9dfa8"/><circle cx="306" cy="88" r="3" fill="#e9dfa8"/>
+<path d="M0 230 Q110 190 220 220 T390 210 L390 440 L0 440 Z" fill="#2f4a3a"/>`,
+      floor: `${fenceRow("#c9d2e8")}<rect x="0" y="262" width="390" height="178" fill="#3f6b47"/>
+<g fill="#ffe680" opacity="0.9"><circle cx="70" cy="300" r="2.5"/><circle cx="310" cy="330" r="2.5"/><circle cx="220" cy="390" r="2"/></g>`,
+    };
+  }
+  if (scene === "scene_snow") {
+    return {
+      sky: `<defs><linearGradient id="sky-snow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bcd9ef"/><stop offset="1" stop-color="#eef6fc"/></linearGradient></defs>
+<rect width="390" height="440" fill="url(#sky-snow)"/>
+<path d="M-20 230 L80 100 L180 230 Z" fill="#9fb3c8"/><path d="M80 100 L58 128 L70 124 L80 134 L92 124 L102 128 Z" fill="#fff"/>
+<path d="M120 230 L250 70 L380 230 Z" fill="#8ea4bb"/><path d="M250 70 L222 106 L238 100 L250 112 L264 100 L278 106 Z" fill="#fff"/>
+<path d="M0 232 Q110 200 220 224 T390 214 L390 440 L0 440 Z" fill="#f4f8fc"/>
+${STARS.map(([x, y]) => `<circle cx="${x}" cy="${y + 20}" r="2" fill="#fff"/>`).join("")}`,
+      floor: `${fenceRow("#fff")}<rect x="0" y="262" width="390" height="178" fill="#ffffff"/>
+<g fill="#dfe9f3"><ellipse cx="60" cy="300" rx="22" ry="5"/><ellipse cx="320" cy="290" rx="18" ry="5"/><ellipse cx="250" cy="390" rx="24" ry="5"/></g>
+<g transform="translate(330 300)"><circle cx="0" cy="18" r="16" fill="#fff" stroke="#dfe9f3" stroke-width="2"/><circle cx="0" cy="-6" r="11" fill="#fff" stroke="#dfe9f3" stroke-width="2"/><circle cx="-4" cy="-8" r="1.5" fill="${INK}"/><circle cx="4" cy="-8" r="1.5" fill="${INK}"/><path d="M0 -5 L8 -3 L0 -2 Z" fill="#ff8a3d"/></g>`,
+    };
+  }
+  if (scene === "scene_space") {
+    return {
+      sky: `<defs><linearGradient id="sky-space" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0b2a"/><stop offset="1" stop-color="#3b1e6b"/></linearGradient></defs>
+<rect width="390" height="440" fill="url(#sky-space)"/>
+${STARS.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.4 : 2.4}" fill="#fff"/>`).join("")}
+<g transform="translate(300 90)"><ellipse cx="0" cy="0" rx="46" ry="10" fill="none" stroke="#ffd086" stroke-width="5" transform="rotate(-18)"/><circle r="26" fill="#ff9f6b"/><path d="M-24 -8 Q0 -2 24 -10" stroke="#e07a4a" stroke-width="4" fill="none"/></g>
+<circle cx="70" cy="120" r="12" fill="#7cc4ef"/><circle cx="66" cy="116" r="4" fill="#a8dcf7"/>`,
+      floor: `<path d="M0 250 Q120 236 220 248 T390 244 L390 440 L0 440 Z" fill="#9a97ab"/>
+<g fill="#7f7c92"><ellipse cx="70" cy="300" rx="24" ry="7"/><ellipse cx="300" cy="320" rx="30" ry="8"/><ellipse cx="200" cy="400" rx="20" ry="6"/></g>
+<g fill="#b6b3c6"><ellipse cx="70" cy="297" rx="18" ry="4"/><ellipse cx="300" cy="316" rx="22" ry="5"/></g>`,
+    };
+  }
+  return {
+    sky: `<defs><linearGradient id="sky-garden" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a8d8f5"/><stop offset="1" stop-color="#e3f3fb"/></linearGradient></defs>
+<rect width="390" height="440" fill="url(#sky-garden)"/>
+<circle cx="300" cy="80" r="26" fill="#ffd23f" opacity="0.25"/><circle cx="300" cy="80" r="17" fill="#ffd86b"/>
+<g fill="#fff"><ellipse cx="70" cy="110" rx="26" ry="10"/><ellipse cx="82" cy="102" rx="14" ry="10"/><ellipse cx="250" cy="150" rx="22" ry="8"/><ellipse cx="260" cy="143" rx="12" ry="8"/></g>
+<path d="M0 230 Q110 190 220 220 T390 210 L390 440 L0 440 Z" fill="#eef5c8"/>`,
+    floor: `${fenceRow("#fff")}<rect x="0" y="262" width="390" height="178" fill="#d8e38c"/>
+<g fill="#b9cf55"><ellipse cx="60" cy="300" rx="16" ry="4"/><ellipse cx="320" cy="290" rx="14" ry="4"/><ellipse cx="250" cy="390" rx="18" ry="4"/></g>`,
+  };
+}
+
 export function sceneSvg(level: number, equipped: string[]): string {
   const garden = equipped.filter((id) => id in GARDEN);
   const back = BACK_ORDER.filter((id) => garden.includes(id));
   const front = garden.filter((id) => !back.includes(id));
   const place = (id: string) =>
     `<g transform="translate(${GARDEN[id].x} ${GARDEN[id].y})">${GARDEN[id].svg}</g>`;
-  const fence = Array.from({ length: 14 })
-    .map(
-      (_, i) =>
-        `<rect x="${i * 30 - 4}" y="226" width="16" height="40" rx="8" fill="#fff"/>`,
-    )
-    .join("");
+  const { sky, floor } = sceneLayers(
+    equipped.find((id) => SCENES.includes(id)),
+  );
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 440" preserveAspectRatio="xMidYMid slice">
-<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a8d8f5"/><stop offset="1" stop-color="#e3f3fb"/></linearGradient></defs>
-<rect width="390" height="440" fill="url(#sky)"/>
-<circle cx="300" cy="80" r="26" fill="#ffd23f" opacity="0.25"/><circle cx="300" cy="80" r="17" fill="#ffd86b"/>
-<g fill="#fff"><ellipse cx="70" cy="110" rx="26" ry="10"/><ellipse cx="82" cy="102" rx="14" ry="10"/><ellipse cx="250" cy="150" rx="22" ry="8"/><ellipse cx="260" cy="143" rx="12" ry="8"/></g>
-<path d="M0 230 Q110 190 220 220 T390 210 L390 440 L0 440 Z" fill="#eef5c8"/>
+${sky}
 ${back.map(place).join("")}
-<rect x="0" y="244" width="390" height="8" fill="#fff"/>${fence}
-<rect x="0" y="262" width="390" height="178" fill="#d8e38c"/>
-<g fill="#b9cf55"><ellipse cx="60" cy="300" rx="16" ry="4"/><ellipse cx="320" cy="290" rx="14" ry="4"/><ellipse cx="250" cy="390" rx="18" ry="4"/></g>
+${floor}
 ${front.map(place).join("")}
 <g transform="translate(115 200) scale(0.8)">${petGroup(level, equipped)}</g>
 </svg>`;

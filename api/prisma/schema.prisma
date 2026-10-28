@@ -127,6 +127,7 @@ model User {
   progressPhotos      ProgressPhoto[]
   shoppingLists       ShoppingList[]
   routines            WorkoutRoutine[]
+  gameDays            GameDay[]
 }
 
 model Food {
@@ -584,4 +585,18 @@ model WorkoutRoutine {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+model GameDay {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game      String
+  day       DateTime @db.Date
+  state     Json
+  won       Boolean  @default(false)
+  finished  Boolean  @default(false)
+  reward    Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, game, day])
 }

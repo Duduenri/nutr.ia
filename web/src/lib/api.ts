@@ -426,7 +426,7 @@ export interface GameState {
 export interface ShopItem {
   id: string;
   name: string;
-  slot: "hat" | "glasses" | "color" | "garden";
+  slot: "hat" | "glasses" | "color" | "garden" | "species" | "scene";
   price: number;
   minLevel: number;
   owned: boolean;

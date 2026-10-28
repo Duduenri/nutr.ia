@@ -15,6 +15,8 @@ const FILTERS: { id: ShopItem["slot"] | "all"; label: string }[] = [
   { id: "glasses", label: "🕶️ Óculos" },
   { id: "color", label: "🎨 Cores" },
   { id: "garden", label: "🌻 Jardim" },
+  { id: "species", label: "🐾 Pets" },
+  { id: "scene", label: "🏝️ Cenários" },
 ];
 
 export function WardrobePage() {
