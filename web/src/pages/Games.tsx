@@ -349,17 +349,64 @@ function storageKey(day: string, level: Level) {
   return `sudoku:${day}:${level}`;
 }
 
-function loadGrid(day: string, level: Level, puzzle: number[]): number[] {
+interface SudokuSave {
+  grid: number[];
+  notes: number[][];
+}
+
+function loadSave(day: string, level: Level, puzzle: number[]): SudokuSave {
+  const fresh = {
+    grid: [...puzzle],
+    notes: Array.from({ length: 81 }, () => [] as number[]),
+  };
   try {
     const raw = localStorage.getItem(storageKey(day, level));
-    if (raw) {
-      const saved = JSON.parse(raw) as number[];
-      if (saved.length === 81) return saved;
+    if (!raw) return fresh;
+    const saved = JSON.parse(raw) as number[] | SudokuSave;
+    if (Array.isArray(saved)) {
+      return saved.length === 81 ? { ...fresh, grid: saved } : fresh;
     }
+    return saved.grid?.length === 81 && saved.notes?.length === 81
+      ? saved
+      : fresh;
   } catch {
-    return [...puzzle];
+    return fresh;
   }
-  return [...puzzle];
+}
+
+function peers(i: number): number[] {
+  const r = Math.floor(i / 9);
+  const c = i % 9;
+  const out: number[] = [];
+  for (let j = 0; j < 81; j++) {
+    const r2 = Math.floor(j / 9);
+    const c2 = j % 9;
+    if (
+      j !== i &&
+      (r === r2 ||
+        c === c2 ||
+        (Math.floor(r / 3) === Math.floor(r2 / 3) &&
+          Math.floor(c / 3) === Math.floor(c2 / 3)))
+    )
+      out.push(j);
+  }
+  return out;
+}
+
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    /* armazenamento indisponível */
+  }
 }
 
 export function SudokuPage() {
@@ -382,10 +429,17 @@ export function SudokuPage() {
 
 function SudokuBoard({ view }: { view: SudokuView }) {
   const qc = useQueryClient();
-  const [grid, setGrid] = useState(() =>
-    loadGrid(view.day, view.level, view.puzzle),
+  const [save, setSave] = useState(() =>
+    loadSave(view.day, view.level, view.puzzle),
   );
+  const { grid, notes } = save;
   const [sel, setSel] = useState<number | null>(null);
+  const [pencil, setPencil] = useState(false);
+  const [checkErrors, setCheckErrors] = useState(() =>
+    readFlag("sudoku:checkErrors"),
+  );
+  const [wrong, setWrong] = useState<Set<number>>(new Set());
+  const [mistakes, setMistakes] = useState(0);
   const [result, setResult] = useState<{
     solved: boolean;
     reward: number;
@@ -393,6 +447,18 @@ function SudokuBoard({ view }: { view: SudokuView }) {
   const bad = conflicts(grid);
   const full = grid.every((v) => v > 0);
 
+  const check = useMutation({
+    mutationFn: (g: number[]) =>
+      api.post<{ wrong: number[] }>("/games/sudoku/check", {
+        level: view.level,
+        grid: g,
+      }),
+    onSuccess: (r, g) => {
+      const added = r.wrong.filter((i) => !wrong.has(i) && g[i] > 0).length;
+      if (added) setMistakes((m) => m + added);
+      setWrong(new Set(r.wrong));
+    },
+  });
   const submit = useMutation({
     mutationFn: (g: number[]) =>
       api.post<{ solved: boolean; reward: number }>("/games/sudoku/submit", {
@@ -407,11 +473,8 @@ function SudokuBoard({ view }: { view: SudokuView }) {
     },
   });
 
-  const put = (n: number) => {
-    if (sel === null || view.puzzle[sel] !== 0 || view.done) return;
-    const next = grid.map((v, i) => (i === sel ? n : v));
-    setGrid(next);
-    setResult(null);
+  const persist = (next: SudokuSave) => {
+    setSave(next);
     try {
       localStorage.setItem(
         storageKey(view.day, view.level),
@@ -420,9 +483,38 @@ function SudokuBoard({ view }: { view: SudokuView }) {
     } catch {
       /* armazenamento indisponível */
     }
-    if (next.every((v) => v > 0) && conflicts(next).size === 0) {
-      submit.mutate(next);
+  };
+
+  const put = (n: number) => {
+    if (sel === null || view.puzzle[sel] !== 0 || view.done) return;
+    if (pencil && n > 0) {
+      if (grid[sel]) return;
+      const cur = notes[sel];
+      const toggled = cur.includes(n)
+        ? cur.filter((x) => x !== n)
+        : [...cur, n].sort();
+      persist({ grid, notes: notes.map((x, i) => (i === sel ? toggled : x)) });
+      return;
     }
+    const nextGrid = grid.map((v, i) => (i === sel ? n : v));
+    const clear = new Set(n ? peers(sel) : []);
+    const nextNotes = notes.map((x, i) =>
+      i === sel ? [] : clear.has(i) ? x.filter((d) => d !== n) : x,
+    );
+    persist({ grid: nextGrid, notes: nextNotes });
+    setResult(null);
+    if (checkErrors) check.mutate(nextGrid);
+    if (nextGrid.every((v) => v > 0) && conflicts(nextGrid).size === 0) {
+      submit.mutate(nextGrid);
+    }
+  };
+
+  const toggleCheck = () => {
+    const on = !checkErrors;
+    setCheckErrors(on);
+    writeFlag("sudoku:checkErrors", on);
+    if (on) check.mutate(grid);
+    else setWrong(new Set());
   };
 
   const selVal = sel !== null ? grid[sel] : 0;
@@ -430,7 +522,23 @@ function SudokuBoard({ view }: { view: SudokuView }) {
   return (
     <div className="pb-6">
       <GameHeader title={`Sudoku ${LEVEL_LABEL[view.level]}`} />
-      <div className="mx-auto max-w-sm px-3 pt-4">
+      <div className="mx-auto max-w-sm px-3 pt-3">
+        <div className="mb-2 flex items-center justify-between text-xs font-bold">
+          <label className="flex items-center gap-2 text-ink/70">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-mint-500"
+              checked={checkErrors}
+              onChange={toggleCheck}
+            />
+            Avisar quando eu errar
+          </label>
+          {checkErrors && (
+            <span className={mistakes ? "text-peach-500" : "text-ink/40"}>
+              Erros: {mistakes}
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-9 overflow-hidden rounded-xl border-2 border-ink bg-white">
           {grid.map((v, i) => {
             const r = Math.floor(i / 9);
@@ -443,11 +551,12 @@ function SudokuBoard({ view }: { view: SudokuView }) {
                 (Math.floor(Math.floor(sel / 9) / 3) === Math.floor(r / 3) &&
                   Math.floor((sel % 9) / 3) === Math.floor(c / 3)));
             const sameNumber = selVal > 0 && v === selVal;
+            const isWrong = !given && (wrong.has(i) || bad.has(i));
             return (
               <button
                 key={i}
                 onClick={() => setSel(i)}
-                className={`grid aspect-square place-items-center text-lg ${
+                className={`relative grid aspect-square place-items-center text-lg ${
                   c % 3 === 2 && c < 8
                     ? "border-r-2 border-r-ink"
                     : "border-r border-r-slate-200"
@@ -458,41 +567,68 @@ function SudokuBoard({ view }: { view: SudokuView }) {
                 } ${
                   sel === i
                     ? "bg-[#d9d2ff]"
-                    : sameNumber
-                      ? "bg-[#ebe6ff]"
-                      : related
-                        ? "bg-soft"
-                        : ""
+                    : isWrong && v
+                      ? "bg-peach-100"
+                      : sameNumber
+                        ? "bg-[#ebe6ff]"
+                        : related
+                          ? "bg-soft"
+                          : ""
                 } ${given ? "font-extrabold text-ink" : "font-bold text-[#6b5bd6]"} ${
-                  bad.has(i) && !given ? "!text-peach-500" : ""
+                  isWrong ? "!text-peach-500" : ""
                 }`}
               >
-                {v || ""}
+                {v ? (
+                  v
+                ) : notes[i].length ? (
+                  <span className="grid h-full w-full grid-cols-3 p-0.5 text-[9px] font-bold leading-none text-ink/50">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+                      <span key={d} className="grid place-items-center">
+                        {notes[i].includes(d) ? d : ""}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  ""
+                )}
               </button>
             );
           })}
         </div>
-        <div className="mt-4 grid grid-cols-5 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setPencil((p) => !p)}
+            disabled={view.done}
+            className={`h-11 rounded-xl text-sm font-extrabold ${
+              pencil ? "bg-[#6b5bd6] text-white" : "bg-white shadow-card"
+            }`}
+          >
+            ✏️ Lápis {pencil ? "ligado" : "desligado"}
+          </button>
+          <button
+            onClick={() => put(0)}
+            disabled={view.done}
+            className="h-11 rounded-xl bg-soft text-sm font-bold"
+          >
+            ⌫ Apagar
+          </button>
+        </div>
+        <div className="mt-2 grid grid-cols-9 gap-1">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
             <button
               key={n}
               onClick={() => put(n)}
               disabled={view.done}
-              className="h-12 rounded-xl bg-white text-xl font-extrabold shadow-card active:bg-soft"
+              className={`h-12 rounded-xl text-xl font-extrabold shadow-card active:bg-soft ${
+                pencil ? "bg-[#efeaff] text-[#6b5bd6]" : "bg-white"
+              }`}
             >
               {n}
             </button>
           ))}
-          <button
-            onClick={() => put(0)}
-            disabled={view.done}
-            className="h-12 rounded-xl bg-soft text-sm font-bold"
-          >
-            Apagar
-          </button>
         </div>
         <div className="mt-4 text-center">
-          <ErrorText error={submit.error} />
+          <ErrorText error={submit.error ?? check.error} />
           {(view.done || result?.solved) && (
             <div className="rounded-3xl bg-white p-4 shadow-card">
               <p className="text-2xl">🎉</p>
@@ -517,8 +653,11 @@ function SudokuBoard({ view }: { view: SudokuView }) {
           )}
           {!view.done && !full && (
             <p className="text-xs text-ink/50">
-              Toque num quadrado vazio e escolha o número. Cada linha, coluna e
-              bloco 3×3 tem 1 a 9 sem repetir. Vale {view.gems} 💎.
+              {pencil
+                ? "Lápis ligado: os números viram anotações pequenas no quadrado."
+                : "Toque num quadrado vazio e escolha o número."}{" "}
+              Cada linha, coluna e bloco 3×3 tem 1 a 9 sem repetir. Vale{" "}
+              {view.gems} 💎.
             </p>
           )}
           {view.done && !result && (

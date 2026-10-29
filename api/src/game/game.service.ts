@@ -18,6 +18,7 @@ import {
 } from './catalog';
 
 const DAY_MS = 86_400_000;
+const CARDIO = ['Caminhada', 'Corrida', 'Bicicleta', 'Natação', 'Dança'];
 
 export const EARNED_GEMS: Prisma.GemTxWhereInput = {
   amount: { gt: 0 },
@@ -106,6 +107,9 @@ export class GameService {
       challengesDone,
       challengesSent,
       notes,
+      activityRows,
+      stepsAgg,
+      steps15kDays,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.groupBy({
@@ -153,7 +157,42 @@ export class GameService {
       }),
       this.prisma.challenge.count({ where: { fromId: userId } }),
       this.prisma.note.count({ where: { userId } }),
+      this.prisma.activity.findMany({
+        where: { userId },
+        select: {
+          date: true,
+          name: true,
+          minutes: true,
+          distanceKm: true,
+          exercises: true,
+        },
+      }),
+      this.prisma.dailySteps.aggregate({
+        where: { userId },
+        _sum: { steps: true },
+      }),
+      this.prisma.dailySteps.count({
+        where: { userId, steps: { gte: 15_000 } },
+      }),
     ]);
+
+    const strength = activityRows.filter(
+      (a) => Array.isArray(a.exercises) && a.exercises.length > 0,
+    );
+    const lifted = strength.flatMap(
+      (a) =>
+        a.exercises as { name: string; sets: { reps: number; kg: number }[] }[],
+    );
+    const perWeek = new Map<string, number>();
+    for (const a of activityRows) {
+      const d = new Date(a.date);
+      d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+      const k = formatDay(d);
+      perWeek.set(k, (perWeek.get(k) ?? 0) + 1);
+    }
+    const cardio = activityRows.filter(
+      (a) => a.distanceKm || CARDIO.includes(a.name),
+    );
 
     const kcalTarget = user.kcalTarget;
     const waterTarget = user.waterTargetMl;
@@ -206,6 +245,21 @@ export class GameService {
       challengesDone,
       challengesSent,
       notes,
+      strengthSessions: strength.length,
+      liftedKg: Math.round(
+        lifted.reduce(
+          (t, e) => t + e.sets.reduce((s, x) => s + x.reps * x.kg, 0),
+          0,
+        ),
+      ),
+      distinctExercises: new Set(lifted.map((e) => e.name.trim().toLowerCase()))
+        .size,
+      bestWeekWorkouts: Math.max(0, ...perWeek.values()),
+      totalSteps: stepsAgg._sum.steps ?? 0,
+      steps15kDays,
+      totalKm: activityRows.reduce((t, a) => t + (a.distanceKm ?? 0), 0),
+      longestKm: Math.max(0, ...activityRows.map((a) => a.distanceKm ?? 0)),
+      cardioMinutes: cardio.reduce((t, a) => t + a.minutes, 0),
     };
   }
 

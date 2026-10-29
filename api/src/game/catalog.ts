@@ -324,6 +324,15 @@ export interface AchievementStats {
   challengesDone: number;
   challengesSent: number;
   notes: number;
+  strengthSessions: number;
+  liftedKg: number;
+  distinctExercises: number;
+  bestWeekWorkouts: number;
+  totalSteps: number;
+  steps15kDays: number;
+  totalKm: number;
+  longestKm: number;
+  cardioMinutes: number;
 }
 
 export interface Achievement {
@@ -695,6 +704,150 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: '🦋',
     gems: 900,
     check: (s) => s.kgLost >= 20,
+  },
+  {
+    key: 'gym_1',
+    title: 'Primeira série',
+    description: 'Registrou o primeiro treino de musculação com exercícios',
+    emoji: '🏋️',
+    gems: 50,
+    check: (s) => s.strengthSessions >= 1,
+  },
+  {
+    key: 'gym_10',
+    title: 'Rato de academia',
+    description: '10 treinos de musculação registrados',
+    emoji: '🐭',
+    gems: 200,
+    check: (s) => s.strengthSessions >= 10,
+  },
+  {
+    key: 'gym_30',
+    title: 'Monstro da academia',
+    description: '30 treinos de musculação registrados',
+    emoji: '🦍',
+    gems: 500,
+    check: (s) => s.strengthSessions >= 30,
+  },
+  {
+    key: 'lift_10t',
+    title: '10 toneladas',
+    description: 'Somou 10.000 kg levantados (séries × reps × carga)',
+    emoji: '🏗️',
+    gems: 200,
+    check: (s) => s.liftedKg >= 10_000,
+  },
+  {
+    key: 'lift_50t',
+    title: '50 toneladas',
+    description: 'Somou 50.000 kg levantados',
+    emoji: '🚛',
+    gems: 500,
+    check: (s) => s.liftedKg >= 50_000,
+  },
+  {
+    key: 'lift_100t',
+    title: 'Força bruta',
+    description: 'Somou 100.000 kg levantados',
+    emoji: '🦾',
+    gems: 800,
+    check: (s) => s.liftedKg >= 100_000,
+  },
+  {
+    key: 'exercises_15',
+    title: 'Repertório variado',
+    description: 'Fez 15 exercícios diferentes',
+    emoji: '🧩',
+    gems: 150,
+    check: (s) => s.distinctExercises >= 15,
+  },
+  {
+    key: 'week_4',
+    title: 'Semana cheia',
+    description: '4 treinos na mesma semana',
+    emoji: '📆',
+    gems: 150,
+    check: (s) => s.bestWeekWorkouts >= 4,
+  },
+  {
+    key: 'week_6',
+    title: 'Disciplina de atleta',
+    description: '6 treinos na mesma semana',
+    emoji: '🔥',
+    gems: 300,
+    check: (s) => s.bestWeekWorkouts >= 6,
+  },
+  {
+    key: 'steps_15k',
+    title: '15 mil passos',
+    description: 'Bateu 15 mil passos em um dia',
+    emoji: '🥾',
+    gems: 150,
+    check: (s) => s.steps15kDays >= 1,
+  },
+  {
+    key: 'steps_10k_7',
+    title: 'Semana andarilha',
+    description: 'Bateu 10 mil passos em 7 dias',
+    emoji: '🚶',
+    gems: 300,
+    check: (s) => s.bigStepDays >= 7,
+  },
+  {
+    key: 'steps_100k',
+    title: '100 mil passos',
+    description: 'Somou 100 mil passos registrados',
+    emoji: '👣',
+    gems: 150,
+    check: (s) => s.totalSteps >= 100_000,
+  },
+  {
+    key: 'steps_500k',
+    title: 'Meio milhão de passos',
+    description: 'Somou 500 mil passos registrados',
+    emoji: '🌍',
+    gems: 500,
+    check: (s) => s.totalSteps >= 500_000,
+  },
+  {
+    key: 'km_10',
+    title: '10 km no total',
+    description: 'Somou 10 km em corridas, caminhadas e pedaladas',
+    emoji: '📍',
+    gems: 150,
+    check: (s) => s.totalKm >= 10,
+  },
+  {
+    key: 'km_50',
+    title: '50 km no total',
+    description: 'Somou 50 km percorridos',
+    emoji: '🗺️',
+    gems: 400,
+    check: (s) => s.totalKm >= 50,
+  },
+  {
+    key: 'run_5k',
+    title: '5 km de uma vez',
+    description: 'Fez 5 km em uma única atividade',
+    emoji: '🏃',
+    gems: 150,
+    check: (s) => s.longestKm >= 5,
+  },
+  {
+    key: 'run_10k',
+    title: '10 km de uma vez',
+    description: 'Fez 10 km em uma única atividade',
+    emoji: '🏅',
+    gems: 300,
+    check: (s) => s.longestKm >= 10,
+  },
+  {
+    key: 'cardio_300',
+    title: '5 horas de cardio',
+    description: 'Somou 5 horas de caminhada, corrida, bike, natação ou dança',
+    emoji: '❤️‍🔥',
+    gems: 200,
+    check: (s) => s.cardioMinutes >= 300,
   },
 ];
 

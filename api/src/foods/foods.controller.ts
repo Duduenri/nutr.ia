@@ -124,11 +124,15 @@ export class FoodsController {
   }
 
   @Get('recent')
-  async recent(@UserId() userId: string) {
+  async recent(@UserId() userId: string, @Query('q') q?: string) {
+    const term = q?.trim();
     const entries = await this.prisma.mealEntry.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(term ? { name: { contains: term, mode: 'insensitive' } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
-      take: 200,
+      take: term ? 500 : 200,
     });
     const seen = new Set<string>();
     const result: typeof entries = [];
@@ -138,7 +142,7 @@ export class FoodsController {
         seen.add(key);
         result.push(e);
       }
-      if (result.length >= 20) break;
+      if (result.length >= (term ? 40 : 20)) break;
     }
     return result.map((e) => ({
       name: e.name,

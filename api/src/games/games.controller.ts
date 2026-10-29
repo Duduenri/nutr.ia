@@ -82,6 +82,19 @@ class SudokuDto {
   grid!: number[];
 }
 
+class SudokuCheckDto {
+  @IsIn(LEVELS)
+  level!: SudokuLevel;
+
+  @IsArray()
+  @ArrayMinSize(81)
+  @ArrayMaxSize(81)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(9, { each: true })
+  grid!: number[];
+}
+
 @Controller('games')
 @UseGuards(AuthGuard)
 export class GamesController {
@@ -199,6 +212,18 @@ export class GamesController {
       puzzle,
       done: row?.won ?? false,
       gems: SUDOKU_GEMS[level as SudokuLevel],
+    };
+  }
+
+  @Post('sudoku/check')
+  @HttpCode(200)
+  async checkSudoku(@UserId() userId: string, @Body() dto: SudokuCheckDto) {
+    const day = await this.today(userId);
+    const { puzzle, solution } = dailySudoku(day, dto.level);
+    return {
+      wrong: dto.grid.flatMap((n, i) =>
+        n !== 0 && puzzle[i] === 0 && n !== solution[i] ? [i] : [],
+      ),
     };
   }
 

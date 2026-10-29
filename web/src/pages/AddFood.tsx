@@ -867,52 +867,80 @@ function FavoritesTab({ onAdd }: { onAdd: (items: FoodItem[]) => void }) {
 }
 
 function RecentTab({ onAdd }: { onAdd: (item: FoodItem) => void }) {
+  const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
   const { data, isLoading } = useQuery({
-    queryKey: ["recent"],
-    queryFn: () => api.get<FoodItem[]>("/foods/recent"),
+    queryKey: ["recent", debounced],
+    queryFn: () =>
+      api.get<FoodItem[]>(
+        `/foods/recent${debounced ? `?q=${encodeURIComponent(debounced)}` : ""}`,
+      ),
   });
-  const [added, setAdded] = useState<Set<number>>(new Set());
+  const [added, setAdded] = useState<Set<string>>(new Set());
 
+  const search = (
+    <input
+      className={inputClass}
+      placeholder="Pesquisar nos seus registros (ex.: pão, frango)"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+    />
+  );
   if (isLoading) {
     return (
-      <div className="text-center text-mint-500">
-        <Spinner />
+      <div className="space-y-3">
+        {search}
+        <div className="text-center text-mint-500">
+          <Spinner />
+        </div>
       </div>
     );
   }
   if (!data?.length) {
     return (
-      <p className="text-center text-ink/60">
-        Seus alimentos registrados aparecem aqui pra adicionar rapidinho.
-      </p>
+      <div className="space-y-3">
+        {search}
+        <p className="text-center text-ink/60">
+          {debounced
+            ? `Nada com “${debounced}” nos seus registros. Tente a aba Buscar.`
+            : "Seus alimentos registrados aparecem aqui pra adicionar rapidinho."}
+        </p>
+      </div>
     );
   }
   return (
-    <ul className="space-y-2">
-      {data.map((item, i) => (
-        <li
-          key={i}
-          className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-card"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-bold">{item.name}</span>
-            <span className="text-xs text-ink/50">
-              {fmt(item.grams)} g · {fmt(item.kcal)} kcal
-            </span>
-          </span>
-          <button
-            onClick={() => {
-              onAdd(item);
-              setAdded((s) => new Set(s).add(i));
-            }}
-            className={`grid h-10 w-10 place-items-center rounded-full text-xl ${added.has(i) ? "bg-mint-500 text-white" : "bg-ink text-white"}`}
-            aria-label="Adicionar"
+    <div className="space-y-3">
+      {search}
+      <ul className="space-y-2">
+        {data.map((item, i) => (
+          <li
+            key={i}
+            className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-card"
           >
-            {added.has(i) ? "✓" : "+"}
-          </button>
-        </li>
-      ))}
-    </ul>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold">{item.name}</span>
+              <span className="text-xs text-ink/50">
+                {fmt(item.grams)} g · {fmt(item.kcal)} kcal
+              </span>
+            </span>
+            <button
+              onClick={() => {
+                onAdd(item);
+                setAdded((s) => new Set(s).add(`${i}:${item.name}`));
+              }}
+              className={`grid h-10 w-10 place-items-center rounded-full text-xl ${added.has(`${i}:${item.name}`) ? "bg-mint-500 text-white" : "bg-ink text-white"}`}
+              aria-label="Adicionar"
+            >
+              {added.has(`${i}:${item.name}`) ? "✓" : "+"}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
