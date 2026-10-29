@@ -85,6 +85,18 @@ type Muscle =
 
 const EXERCISE_RULES: [RegExp, Muscle[], Muscle[]][] = [
   [
+    /coice.*gl[úu]te|gl[úu]te.*coice|kickback|frog pump|extens[ãa]o de quadril/,
+    ["Glúteos"],
+    ["Posterior"],
+  ],
+  [
+    /chest press|press de peito|supino m[áa]quina/,
+    ["Peito"],
+    ["Tríceps", "Ombros"],
+  ],
+  [/dead bug|bird dog|hollow|abdominal|crunch|canivete/, ["Abdômen"], []],
+  [/^leg\b|\bleg\b(?! curl)/, ["Quadríceps"], ["Glúteos"]],
+  [
     /crucifixo invertido|face pull|voador invertido|posterior de ombro/,
     ["Ombros"],
     ["Costas"],
