@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { AdaptiveCard } from "../components/AdaptiveCard";
 import { BodyCards } from "../components/Body";
+import { InsightsSheet } from "../components/Insights";
 import { RoutineManager } from "../components/Routines";
 import { ProfileForm } from "../components/ProfileForm";
 import { WaterReminderForm } from "../components/Reminders";
@@ -48,6 +49,7 @@ type Tab = "weight" | "nutrition" | "training" | "photos";
 export function ProfilePage({ profile }: { profile: Profile }) {
   const [tab, setTab] = useState<Tab>("weight");
   const [settings, setSettings] = useState(false);
+  const [insights, setInsights] = useState(false);
 
   return (
     <div>
@@ -65,13 +67,22 @@ export function ProfilePage({ profile }: { profile: Profile }) {
               {fmt(profile.kcalTarget)} kcal / d
             </span>
           </div>
-          <button
-            onClick={() => setSettings(true)}
-            className="grid h-12 w-12 place-items-center self-start rounded-full text-3xl"
-            aria-label="Configurações"
-          >
-            ⚙️
-          </button>
+          <div className="flex flex-col items-center gap-1 self-start">
+            <button
+              onClick={() => setSettings(true)}
+              className="grid h-12 w-12 place-items-center rounded-full text-3xl"
+              aria-label="Configurações"
+            >
+              ⚙️
+            </button>
+            <button
+              onClick={() => setInsights(true)}
+              className="grid h-12 w-12 place-items-center rounded-full bg-white text-2xl shadow-card"
+              aria-label="Resumo da semana"
+            >
+              📊
+            </button>
+          </div>
         </div>
         <div className="mt-4 flex">
           {(
@@ -102,6 +113,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
         {tab === "training" && <TrainingTab />}
         {tab === "photos" && <PhotosTab />}
       </div>
+      <InsightsSheet open={insights} onClose={() => setInsights(false)} />
       <SettingsSheet
         open={settings}
         onClose={() => setSettings(false)}
@@ -1003,8 +1015,64 @@ const PACE_BADGE = {
   reached: { text: "Meta alcançada! 🎉", tone: "bg-mint-50 text-mint-500" },
 };
 
+interface Forecast {
+  status:
+    | "no_target"
+    | "collecting"
+    | "reached"
+    | "stable"
+    | "wrong_direction"
+    | "too_far"
+    | "projected";
+  currentKg: number | null;
+  targetKg: number | null;
+  targetDate: string | null;
+  weeklyKg: number | null;
+  date: string | null;
+  onTrack: boolean | null;
+}
+
+function ForecastLine({ forecast: f }: { forecast: Forecast }) {
+  const rate =
+    f.weeklyKg !== null
+      ? `${f.weeklyKg > 0 ? "+" : "−"}${fmt(Math.abs(f.weeklyKg), 2)} kg/semana`
+      : "";
+  const text: Record<Forecast["status"], string | null> = {
+    no_target: null,
+    collecting:
+      "📈 Pese-se mais algumas vezes (com 1 semana de diferença) que eu calculo quando você chega na meta.",
+    reached: "🎉 Você está na meta! Agora é manter.",
+    stable: `➖ Seu peso está estável (${rate}). Nesse ritmo a meta não chega: vale revisar as calorias.`,
+    wrong_direction: `↩️ Seu peso está indo no sentido contrário da meta (${rate}).`,
+    too_far: `🐢 No ritmo atual (${rate}) a meta ainda está bem longe.`,
+    projected: f.date
+      ? `📅 No ritmo atual (${rate}), você chega aos ${fmt(f.targetKg, 1)} kg por volta de ${new Date(`${f.date}T12:00:00`).toLocaleDateString("pt-BR")}${f.onTrack === false ? " — depois da data que você escolheu" : f.onTrack ? " — antes da sua data! 🚀" : ""}.`
+      : null,
+  };
+  const msg = text[f.status];
+  if (!msg) return null;
+  return (
+    <p
+      className={`mt-2 rounded-2xl px-4 py-2 text-sm font-semibold ${
+        f.status === "projected" && f.onTrack !== false
+          ? "bg-mint-50"
+          : f.status === "wrong_direction" || f.onTrack === false
+            ? "bg-peach-100/70"
+            : "bg-soft"
+      }`}
+    >
+      {msg}
+    </p>
+  );
+}
+
 function GoalCard({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
+  const { data: forecast } = useQuery({
+    queryKey: ["forecast", today()],
+    queryFn: () => api.get<Forecast>(`/insights/forecast?today=${today()}`),
+    enabled: Boolean(profile.targetWeightKg),
+  });
   const plan = profile.goalPlan;
   const date = profile.targetDate
     ? new Date(`${profile.targetDate.slice(0, 10)}T12:00:00`)
@@ -1079,6 +1147,7 @@ function GoalCard({ profile }: { profile: Profile }) {
           ajusto suas calorias.
         </p>
       )}
+      {forecast && <ForecastLine forecast={forecast} />}
       <GoalSheet open={open} onClose={() => setOpen(false)} profile={profile} />
     </Card>
   );

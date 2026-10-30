@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { sumEntries } from '../diary/diary.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { InsightsService } from '../insights/insights.service';
 import { AdaptiveService } from '../profile/adaptive.service';
 import { ageFrom } from '../profile/nutrition';
 
@@ -21,6 +22,7 @@ export class UserContextService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly adaptive: AdaptiveService,
+    private readonly insights: InsightsService,
   ) {}
 
   async build(userId: string, todayRaw: string) {
@@ -206,6 +208,34 @@ export class UserContextService {
         ? `Fotos de progresso no perfil (${photos.length}): ${photos.map((p) => formatDay(p.date)).join(', ')}. Elas são anexadas quando a pessoa fala de fotos/evolução do corpo.`
         : 'Nenhuma foto de progresso no perfil ainda (ficam em Perfil → Peso → Fotos de progresso).',
     ].join('\n');
+    const [recentCheckins, corr, forecast] = await Promise.all([
+      this.prisma.dailyCheckin.findMany({
+        where: { userId, date: { gte: addDays(today, -7), lte: today } },
+        orderBy: { date: 'asc' },
+      }),
+      this.insights.correlations(userId, todayRaw),
+      this.insights.forecast(userId, todayRaw),
+    ]);
+    const checkinText = [
+      recentCheckins.length
+        ? `Check-ins (1=ruim, 5=ótimo; fome 1=pouca, 5=muita): ${recentCheckins
+            .map(
+              (c) =>
+                `${formatDay(c.date)}: sono ${c.sleep ?? '-'}${c.sleepHours !== null ? ` (${c.sleepHours} h)` : ''}, energia ${c.energy ?? '-'}, fome ${c.hunger ?? '-'}`,
+            )
+            .join('; ')}`
+        : null,
+      corr.avgSleepHours !== null &&
+        `Média de sono: ${Math.round(corr.avgSleepHours * 10) / 10} h`,
+      corr.sleepKcal !== null &&
+        `Nos dias de sono ruim come em média ${corr.sleepKcal >= 0 ? '+' : ''}${corr.sleepKcal} kcal vs dias de sono bom`,
+      corr.hungerKcal !== null &&
+        `Nos dias de muita fome come em média ${corr.hungerKcal >= 0 ? '+' : ''}${corr.hungerKcal} kcal`,
+      forecast.status === 'projected' &&
+        `Previsão pela tendência do peso: chega a ${forecast.targetKg} kg por volta de ${forecast.date} (${forecast.weeklyKg} kg/semana)${forecast.onTrack === false ? ', depois da data desejada' : ''}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
     const adaptive = await this.adaptive.estimate(userId, todayRaw);
     const energy =
       adaptive.tdee !== null && adaptive.status === 'ready'
@@ -213,7 +243,7 @@ export class UserContextService {
         : null;
 
     return {
-      profile: energy ? `${profile}\n${energy}` : profile,
+      profile: [profile, energy, checkinText].filter(Boolean).join('\n'),
       today: todayText,
       history,
       exams: exams || undefined,

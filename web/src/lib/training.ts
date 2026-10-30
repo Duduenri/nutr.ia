@@ -48,6 +48,37 @@ export function exerciseSummary(e: Exercise): string {
 export interface ExerciseDraft {
   name: string;
   sets: { reps: string; kg: string }[];
+  hint?: string;
+}
+
+function loadStep(kg: number): number {
+  return kg < 10 ? 1 : kg < 50 ? 2.5 : 5;
+}
+
+export function suggestLoad(
+  last: { reps: number; kg: number }[] | null,
+  repsRange: string,
+): { kg: string; hint?: string } {
+  if (!last?.length) return { kg: "" };
+  const kg = Math.max(...last.map((s) => s.kg));
+  if (kg <= 0) return { kg: "" };
+  const heavy = last.filter((s) => s.kg === kg);
+  const minReps = Math.min(...heavy.map((s) => s.reps));
+  const kgTxt = (v: number) =>
+    v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  const numbers = (repsRange.match(/\d+/g) ?? []).map(Number);
+  const top = /\bs\b|seg|min/.test(repsRange) ? 0 : Math.max(0, ...numbers);
+  if (top && minReps >= top) {
+    const next = kg + loadStep(kg);
+    return {
+      kg: String(next).replace(".", ","),
+      hint: `↑ Sugestão: ${kgTxt(next)} kg. Da última vez você fez ${heavy.length}×${minReps} com ${kgTxt(kg)} kg (topo da faixa)`,
+    };
+  }
+  return {
+    kg: String(kg).replace(".", ","),
+    hint: `Última vez: ${heavy.length}×${minReps} com ${kgTxt(kg)} kg${top ? `. Ao chegar em ${top} reps em todas as séries, suba a carga` : ""}`,
+  };
 }
 
 const num = (v: string) => parseFloat(v.replace(",", ".")) || 0;

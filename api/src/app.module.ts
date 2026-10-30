@@ -29,6 +29,8 @@ import { PhotosService } from './photos/photos.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { AdaptiveService } from './profile/adaptive.service';
 import { GamesController } from './games/games.controller';
+import { InsightsController } from './insights/insights.controller';
+import { InsightsService } from './insights/insights.service';
 import { ProfileController } from './profile/profile.controller';
 import { RoutinesController } from './training/routines.controller';
 import { PushController } from './push/push.controller';
@@ -50,6 +52,7 @@ import { SupplementsController } from './supplements/supplements.controller';
   controllers: [
     AuthController,
     ProfileController,
+    InsightsController,
     GamesController,
     RoutinesController,
     DiaryController,
@@ -78,6 +81,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     PhotosService,
     DiaryService,
     UserContextService,
+    InsightsService,
     AdaptiveService,
     GameService,
     FriendsService,

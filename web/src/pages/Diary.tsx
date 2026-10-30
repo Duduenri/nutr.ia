@@ -39,6 +39,7 @@ import {
   exerciseSummary,
   fromDraft,
   STRENGTH_SPORTS,
+  suggestLoad,
   toDraft,
   type Exercise,
   type ExerciseDraft,
@@ -53,9 +54,17 @@ import {
   relativeDayTime,
   useNow,
 } from "../lib/fasting";
-import { useFasting, useInvalidateDay, useProfile } from "../lib/hooks";
+import {
+  useFasting,
+  useGame,
+  useInvalidateDay,
+  useProfile,
+} from "../lib/hooks";
+import { shareStory } from "../lib/share";
 import { ProteinCard, SupplementsCard } from "../components/Bariatric";
 import { WaterReminderSheet } from "../components/Reminders";
+import { CheckinCard } from "../components/Checkin";
+import { InsightsBanner } from "../components/Insights";
 
 export function DiaryPage() {
   const [params, setParams] = useSearchParams();
@@ -86,6 +95,8 @@ export function DiaryPage() {
         <ErrorText error={error} />
         {data && (
           <>
+            {date === today() && <InsightsBanner />}
+            <CheckinCard date={date} />
             <OverTargetCard diary={data} date={date} />
             {profile?.bariatric && (
               <>
@@ -860,26 +871,29 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     dayIndex: number;
     exercises: Exercise[];
   } | null>(null);
-  const lastKg = (name: string) => {
+  const lastSets = (name: string) => {
     const k = name.trim().toLowerCase();
     for (const a of [...pastStrength].reverse()) {
       const e = a.exercises!.find((x) => x.name.trim().toLowerCase() === k);
-      const kg = e ? Math.max(...e.sets.map((s) => s.kg)) : 0;
-      if (kg > 0) return String(kg);
+      if (e && e.sets.some((s) => s.kg > 0)) return e.sets;
     }
-    return "";
+    return null;
   };
   const pickPlanDay = (index: number) => {
     const day = routine!.days[index];
     setPlanDay(index);
     setExercises(
-      day.exercises.map((e) => ({
-        name: e.name,
-        sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
-          reps: String(e.repsTarget),
-          kg: lastKg(e.name),
-        })),
-      })),
+      day.exercises.map((e) => {
+        const s = suggestLoad(lastSets(e.name), e.reps);
+        return {
+          name: e.name,
+          hint: s.hint,
+          sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
+            reps: String(e.repsTarget),
+            kg: s.kg,
+          })),
+        };
+      }),
     );
     if (!form.details.trim()) {
       setForm({ ...form, details: `${day.label} — ${day.focus}` });
@@ -904,6 +918,7 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
   };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [stepsOpen, setStepsOpen] = useState(false);
+  const [records, setRecords] = useState<PersonalRecord[] | null>(null);
   const close = () => {
     setOpen(false);
     setForm(EMPTY_ACTIVITY);
@@ -970,10 +985,14 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
     mutationFn: () => {
       const body = { ...payload(), date, kcal: parseInt(form.kcal, 10) };
       return editingId
-        ? api.patch(`/activities/${editingId}`, body)
-        : api.post("/activities", body);
+        ? api.patch<{ records: PersonalRecord[] }>(
+            `/activities/${editingId}`,
+            body,
+          )
+        : api.post<{ records: PersonalRecord[] }>("/activities", body);
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      if (saved.records?.length) setRecords(saved.records);
       if (routine && planDay !== null && !editingId) {
         const logged = fromDraft(exercises);
         const day = routine.days[planDay];
@@ -1157,6 +1176,7 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
           👟 Passos
         </Button>
       </div>
+      <RecordsSheet records={records} onClose={() => setRecords(null)} />
       <StepsSheet
         open={stepsOpen}
         onClose={() => setStepsOpen(false)}
@@ -1311,6 +1331,86 @@ function Activities({ diary, date }: { diary: Diary; date: string }) {
         </div>
       </Sheet>
     </Card>
+  );
+}
+
+interface PersonalRecord {
+  name: string;
+  kg: number;
+  previous: number;
+  gems: number;
+}
+
+function RecordsSheet({
+  records,
+  onClose,
+}: {
+  records: PersonalRecord[] | null;
+  onClose: () => void;
+}) {
+  const { data: game } = useGame();
+  const [sharing, setSharing] = useState(false);
+  const kg = (v: number) =>
+    `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg`;
+  const gems = (records ?? []).reduce((t, r) => t + r.gems, 0);
+  const share = async () => {
+    if (!records?.length || !game) return;
+    setSharing(true);
+    try {
+      const top = records[0];
+      await shareStory({
+        kicker: "Novo recorde!",
+        emoji: "🏆",
+        title: `${top.name}: ${kg(top.kg)}`,
+        subtitle:
+          records.length > 1
+            ? `e mais ${records.length - 1} ${records.length === 2 ? "recorde" : "recordes"} hoje`
+            : `antes: ${kg(top.previous)}`,
+        badge: `+${kg(top.kg - top.previous)}`,
+        petLevel: game.level,
+        petEquipped: game.equipped,
+      });
+    } finally {
+      setSharing(false);
+    }
+  };
+  return (
+    <Sheet open={Boolean(records)} onClose={onClose}>
+      {records && (
+        <div className="space-y-4 pb-6 text-center">
+          <div className="text-6xl">🏆</div>
+          <h2 className="text-2xl font-extrabold">
+            {records.length === 1
+              ? "Novo recorde!"
+              : `${records.length} recordes novos!`}
+          </h2>
+          <ul className="space-y-2 text-left">
+            {records.map((r) => (
+              <li key={r.name} className="rounded-2xl bg-mint-50 px-4 py-3">
+                <span className="block font-extrabold">{r.name}</span>
+                <span className="text-sm text-ink/70">
+                  {kg(r.previous)} → <b>{kg(r.kg)}</b> (+{kg(r.kg - r.previous)}
+                  )
+                </span>
+              </li>
+            ))}
+          </ul>
+          {gems > 0 && (
+            <p className="font-extrabold text-mint-500">+{gems} 💎 pra você</p>
+          )}
+          <Button
+            className="w-full"
+            loading={sharing}
+            onClick={() => void share()}
+          >
+            📲 Compartilhar no Stories
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={onClose}>
+            Fechar
+          </Button>
+        </div>
+      )}
+    </Sheet>
   );
 }
 

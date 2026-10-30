@@ -128,6 +128,7 @@ model User {
   shoppingLists       ShoppingList[]
   routines            WorkoutRoutine[]
   gameDays            GameDay[]
+  checkins            DailyCheckin[]
 }
 
 model Food {
@@ -599,4 +600,17 @@ model GameDay {
   updatedAt DateTime @updatedAt
 
   @@id([userId, game, day])
+}
+
+model DailyCheckin {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  sleep      Int?
+  sleepHours Float?
+  energy     Int?
+  hunger     Int?
+  updatedAt  DateTime @updatedAt
+
+  @@id([userId, date])
 }

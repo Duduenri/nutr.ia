@@ -159,6 +159,8 @@ function exercisesText(exercises: ExerciseDto[] | undefined): string {
     .join('; ');
 }
 
+const RECORD_GEMS = 15;
+
 class EstimateActivityDto {
   @IsString()
   @MinLength(1)
@@ -335,8 +337,8 @@ export class DiaryController {
   }
 
   @Post('activities')
-  addActivity(@UserId() userId: string, @Body() dto: ActivityDto) {
-    return this.prisma.activity.create({
+  async addActivity(@UserId() userId: string, @Body() dto: ActivityDto) {
+    const activity = await this.prisma.activity.create({
       data: {
         ...dto,
         details: dto.details?.trim() || null,
@@ -347,6 +349,10 @@ export class DiaryController {
         date: parseDay(dto.date.slice(0, 10)),
       },
     });
+    return {
+      ...activity,
+      records: await this.records(userId, activity.id, dto.exercises),
+    };
   }
 
   @Get('activities/history')
@@ -415,7 +421,7 @@ export class DiaryController {
     await this.assertOwn(
       this.prisma.activity.findFirst({ where: { id, userId } }),
     );
-    return this.prisma.activity.update({
+    const activity = await this.prisma.activity.update({
       where: { id },
       data: {
         name: dto.name,
@@ -430,6 +436,75 @@ export class DiaryController {
         date: parseDay(dto.date.slice(0, 10)),
       },
     });
+    return {
+      ...activity,
+      records: await this.records(userId, id, dto.exercises),
+    };
+  }
+
+  private async records(
+    userId: string,
+    activityId: string,
+    exercises: ExerciseDto[] | undefined,
+  ) {
+    if (!exercises?.length) return [];
+    const others = await this.prisma.activity.findMany({
+      where: {
+        userId,
+        id: { not: activityId },
+        exercises: { not: Prisma.DbNull },
+      },
+      select: { exercises: true },
+    });
+    const best = new Map<string, number>();
+    for (const a of others) {
+      for (const e of (a.exercises as unknown as ExerciseDto[]) ?? []) {
+        const k = e.name.trim().toLowerCase();
+        best.set(k, Math.max(best.get(k) ?? 0, ...e.sets.map((x) => x.kg)));
+      }
+    }
+    const found: {
+      name: string;
+      kg: number;
+      previous: number;
+      gems: number;
+    }[] = [];
+    for (const e of exercises) {
+      const k = e.name.trim().toLowerCase();
+      const kg = Math.max(0, ...e.sets.map((x) => x.kg));
+      const previous = best.get(k) ?? 0;
+      if (previous > 0 && kg > previous) {
+        found.push({ name: e.name.trim(), kg, previous, gems: RECORD_GEMS });
+      }
+    }
+    if (found.length) {
+      const result = await this.prisma.gemTx.createMany({
+        data: found.map((r) => ({
+          userId,
+          amount: RECORD_GEMS,
+          reason: `Recorde: ${r.name} ${r.kg} kg`,
+          refKey: `pr:${r.name.toLowerCase()}:${r.kg}`,
+        })),
+        skipDuplicates: true,
+      });
+      if (result.count < found.length) {
+        const paid = await this.prisma.gemTx.findMany({
+          where: {
+            userId,
+            refKey: {
+              in: found.map((r) => `pr:${r.name.toLowerCase()}:${r.kg}`),
+            },
+            createdAt: { lt: new Date(Date.now() - 5_000) },
+          },
+          select: { refKey: true },
+        });
+        const old = new Set(paid.map((p) => p.refKey));
+        for (const r of found) {
+          if (old.has(`pr:${r.name.toLowerCase()}:${r.kg}`)) r.gems = 0;
+        }
+      }
+    }
+    return found;
   }
 
   @Delete('activities/:id')

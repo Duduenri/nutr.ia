@@ -75,6 +75,13 @@ export function ExercisesEditor({
               ✕
             </button>
           </div>
+          {e.hint && (
+            <p
+              className={`mt-1 px-1 text-xs font-semibold ${e.hint.startsWith("↑") ? "text-mint-500" : "text-ink/50"}`}
+            >
+              {e.hint}
+            </p>
+          )}
           <div className="mt-2 space-y-1.5">
             {e.sets.map((s, k) => (
               <div key={k} className="flex items-center gap-2 text-sm">
