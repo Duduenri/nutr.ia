@@ -111,11 +111,8 @@ const EXERCISE_RULES: [RegExp, Muscle[], Muscle[]][] = [
   [/pullover/, ["Costas"], ["Peito"]],
   [/puxada|pulldown|pull down|barra fixa/, ["Costas"], ["Bíceps", "Antebraço"]],
   [/remada|serrote/, ["Costas"], ["Bíceps", "Ombros", "Antebraço"]],
-  [
-    /rosca (inversa|reversa|de punho|punho)|punho|antebra[çc]o|wrist/,
-    ["Antebraço"],
-    ["Bíceps"],
-  ],
+  [/rosca (inversa|reversa)/, ["Antebraço"], ["Bíceps"]],
+  [/punho|antebra[çc]o|wrist/, ["Antebraço"], []],
   [/farmer/, ["Antebraço"], ["Costas", "Abdômen"]],
   [/mergulho/, ["Tríceps"], ["Peito", "Ombros"]],
   [/tr[íi]ceps|franc[êe]s|testa|coice/, ["Tríceps"], []],
