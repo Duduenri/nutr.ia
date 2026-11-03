@@ -1,4 +1,9 @@
-import { toDraft, type Exercise, type ExerciseDraft } from "../lib/training";
+import {
+  exerciseMode,
+  toDraft,
+  type Exercise,
+  type ExerciseDraft,
+} from "../lib/training";
 
 const COMMON = [
   "Agachamento",
@@ -15,7 +20,15 @@ const COMMON = [
   "Elevação lateral",
   "Elevação pélvica",
   "Panturrilha",
+  "Prancha",
 ];
+
+const num = (v: string) => parseFloat(v.replace(",", ".")) || 0;
+
+const newSet = (name: string) => ({
+  reps: exerciseMode(name).timed ? "30" : "10",
+  kg: "",
+});
 
 export function ExercisesEditor({
   value,
@@ -57,77 +70,87 @@ export function ExercisesEditor({
           <option key={n} value={n} />
         ))}
       </datalist>
-      {value.map((e, i) => (
-        <div key={i} className="rounded-2xl bg-soft p-3">
-          <div className="flex items-center gap-2">
-            <input
-              list="exercise-names"
-              className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2 font-bold outline-none"
-              placeholder="Nome do exercício"
-              value={e.name}
-              onChange={(ev) => update(i, { name: ev.target.value })}
-            />
+      {value.map((e, i) => {
+        const mode = exerciseMode(e.name);
+        return (
+          <div key={i} className="rounded-2xl bg-soft p-3">
+            <div className="flex items-center gap-2">
+              <input
+                list="exercise-names"
+                className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2 font-bold outline-none"
+                placeholder="Nome do exercício"
+                value={e.name}
+                onChange={(ev) => update(i, { name: ev.target.value })}
+              />
+              <button
+                onClick={() => onChange(value.filter((_, j) => j !== i))}
+                className="p-2 text-ink/40"
+                aria-label="Remover exercício"
+              >
+                ✕
+              </button>
+            </div>
+            {e.hint && (
+              <p
+                className={`mt-1 px-1 text-xs font-semibold ${e.hint.startsWith("↑") ? "text-mint-500" : "text-ink/50"}`}
+              >
+                {e.hint}
+              </p>
+            )}
+            <div className="mt-2 space-y-1.5">
+              {e.sets.map((s, k) => (
+                <div key={k} className="flex items-center gap-2 text-sm">
+                  <span className="w-14 shrink-0 font-bold text-ink/50">
+                    Série {k + 1}
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    className="w-16 rounded-xl bg-white px-2 py-1.5 text-center outline-none"
+                    value={s.reps}
+                    onChange={(ev) => setField(i, k, "reps", ev.target.value)}
+                  />
+                  <span className="text-ink/50">
+                    {mode.timed ? "seg" : "reps"}
+                    {(mode.load || num(s.kg) > 0) && " ×"}
+                  </span>
+                  {(mode.load || num(s.kg) > 0) && (
+                    <>
+                      <input
+                        inputMode="decimal"
+                        className="w-16 rounded-xl bg-white px-2 py-1.5 text-center outline-none"
+                        value={s.kg}
+                        onChange={(ev) => setField(i, k, "kg", ev.target.value)}
+                      />
+                      <span className="text-ink/50">kg</span>
+                    </>
+                  )}
+                  {e.sets.length > 1 && (
+                    <button
+                      onClick={() =>
+                        update(i, { sets: e.sets.filter((_, j) => j !== k) })
+                      }
+                      className="ml-auto px-1 text-ink/30"
+                      aria-label="Remover série"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
             <button
-              onClick={() => onChange(value.filter((_, j) => j !== i))}
-              className="p-2 text-ink/40"
-              aria-label="Remover exercício"
+              onClick={() =>
+                update(i, {
+                  sets: [...e.sets, { ...e.sets[e.sets.length - 1] }],
+                })
+              }
+              className="mt-2 text-sm font-bold text-mint-500"
             >
-              ✕
+              + série
             </button>
           </div>
-          {e.hint && (
-            <p
-              className={`mt-1 px-1 text-xs font-semibold ${e.hint.startsWith("↑") ? "text-mint-500" : "text-ink/50"}`}
-            >
-              {e.hint}
-            </p>
-          )}
-          <div className="mt-2 space-y-1.5">
-            {e.sets.map((s, k) => (
-              <div key={k} className="flex items-center gap-2 text-sm">
-                <span className="w-14 shrink-0 font-bold text-ink/50">
-                  Série {k + 1}
-                </span>
-                <input
-                  inputMode="numeric"
-                  className="w-16 rounded-xl bg-white px-2 py-1.5 text-center outline-none"
-                  value={s.reps}
-                  onChange={(ev) => setField(i, k, "reps", ev.target.value)}
-                />
-                <span className="text-ink/50">reps ×</span>
-                <input
-                  inputMode="decimal"
-                  className="w-16 rounded-xl bg-white px-2 py-1.5 text-center outline-none"
-                  value={s.kg}
-                  onChange={(ev) => setField(i, k, "kg", ev.target.value)}
-                />
-                <span className="text-ink/50">kg</span>
-                {e.sets.length > 1 && (
-                  <button
-                    onClick={() =>
-                      update(i, { sets: e.sets.filter((_, j) => j !== k) })
-                    }
-                    className="ml-auto px-1 text-ink/30"
-                    aria-label="Remover série"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() =>
-              update(i, {
-                sets: [...e.sets, { ...e.sets[e.sets.length - 1] }],
-              })
-            }
-            className="mt-2 text-sm font-bold text-mint-500"
-          >
-            + série
-          </button>
-        </div>
-      ))}
+        );
+      })}
       <div className="flex flex-wrap gap-1.5">
         {suggestions
           .filter((n) => !used.has(n.toLowerCase()))
@@ -136,10 +159,7 @@ export function ExercisesEditor({
             <button
               key={n}
               onClick={() =>
-                onChange([
-                  ...value,
-                  { name: n, sets: [{ reps: "10", kg: "" }] },
-                ])
+                onChange([...value, { name: n, sets: [newSet(n)] }])
               }
               className="rounded-full border border-dashed border-ink/25 px-3 py-1.5 text-xs font-bold text-ink/60"
             >

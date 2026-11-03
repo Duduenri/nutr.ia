@@ -105,6 +105,27 @@ export interface FoodItem {
   fiber?: number | null;
   micros?: Micros | null;
   foodId?: string | null;
+  quality?: FoodQuality | null;
+  qualityTags?: string[];
+}
+
+export type FoodQuality = "GOOD" | "OK" | "BAD";
+
+export type JunkTag =
+  | "doce"
+  | "fritura"
+  | "ultraprocessado"
+  | "refrigerante"
+  | "alcool"
+  | "embutido"
+  | "fastfood";
+
+export interface JunkSummary {
+  items: { name: string; kcal: number; tags: string[] }[];
+  dayKcal: number;
+  dayCount: number;
+  targetKcal: number;
+  bariatric: boolean;
 }
 
 export interface Entry extends FoodItem {

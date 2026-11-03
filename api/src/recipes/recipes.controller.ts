@@ -34,6 +34,7 @@ import { AuthGuard, UserId } from '../auth/auth.guard';
 import { UserContextService } from '../coach/user-context.service';
 import { parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { classifyFood } from '../diary/food-quality';
 
 class GenerateDto {
   @IsDateString()
@@ -313,6 +314,7 @@ export class RecipesController {
         carbs: r.carbs * n,
         fat: r.fat * n,
         fiber: r.fiber * n,
+        ...classifyFood(r.title),
       },
     });
     return { ok: true };

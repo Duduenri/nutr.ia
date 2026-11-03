@@ -9,7 +9,7 @@ import {
   YAxis,
 } from "recharts";
 import type { TrainingHistory } from "../lib/api";
-import { exerciseMuscles, MUSCLE_ORDER } from "../lib/training";
+import { exerciseMode, exerciseMuscles, MUSCLE_ORDER } from "../lib/training";
 import { BodyLegend, BodyMap } from "./BodyMap";
 import { Card, fmt } from "./ui";
 
@@ -229,7 +229,8 @@ function ExerciseProgress({
       }),
   );
   const noLoad = points.every((p) => p.kg === 0);
-  const unit = noLoad ? "reps" : "kg";
+  const repUnit = exerciseMode(selected).timed ? "s" : "reps";
+  const unit = noLoad ? repUnit : "kg";
   const valueOf = (p: (typeof points)[number]) => (noLoad ? p.reps : p.kg);
   const series = points.map((p) => ({ ...p, v: valueOf(p) }));
   const first = series[0];
@@ -246,7 +247,7 @@ function ExerciseProgress({
             {fmt(record.v, 1)} {unit}
           </div>
           <div className="text-xs text-ink/50">
-            {noLoad ? "sem carga" : `${record.reps} reps`} ·{" "}
+            {noLoad ? "sem carga" : `${record.reps} ${repUnit}`} ·{" "}
             {shortDay(record.t)}
           </div>
         </div>
@@ -268,7 +269,7 @@ function ExerciseProgress({
           </div>
           <div className="text-lg font-extrabold">
             {noLoad
-              ? `${lastPoint.totalReps} reps`
+              ? `${lastPoint.totalReps} ${repUnit}`
               : `${fmt(lastPoint.volume)} kg`}
           </div>
           <div className="text-xs text-ink/50">
@@ -310,8 +311,8 @@ function ExerciseProgress({
                 }
                 formatter={(v: number, _n, item) => [
                   noLoad
-                    ? `${v} reps · ${item.payload.totalReps} no total`
-                    : `${fmt(v, 1)} kg × ${item.payload.reps} · volume ${fmt(item.payload.volume)} kg`,
+                    ? `${v} ${repUnit} · ${item.payload.totalReps} ${repUnit} no total`
+                    : `${fmt(v, 1)} kg × ${item.payload.reps}${repUnit === "s" ? " s" : ""} · volume ${fmt(item.payload.volume)} kg`,
                   "",
                 ]}
                 separator=""

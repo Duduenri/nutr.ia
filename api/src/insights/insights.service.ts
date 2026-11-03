@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { setsVolume } from '../training/exercise-format';
+import { JUNK_LABEL, junkStats, type JunkStats } from '../diary/food-quality';
 
 const DAY_MS = 86_400_000;
 
@@ -206,40 +208,59 @@ export class InsightsService {
     }
     const days = Math.round((end.getTime() - start.getTime()) / DAY_MS) + 1;
     const range = { gte: prevStart, lte: end };
-    const [user, activities, meals, water, weights, measures, steps, history] =
-      await Promise.all([
-        this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-        this.prisma.activity.findMany({ where: { userId, date: range } }),
-        this.prisma.mealEntry.groupBy({
-          by: ['date'],
-          where: { userId, date: range },
-          _sum: { kcal: true, protein: true },
-        }),
-        this.prisma.waterLog.groupBy({
-          by: ['date'],
-          where: { userId, date: range },
-          _sum: { ml: true },
-        }),
-        this.prisma.weightLog.findMany({
-          where: { userId, date: { gte: addDays(start, -4), lte: end } },
-          orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
-        }),
-        this.prisma.bodyMeasure.findMany({
-          where: { userId, date: { gte: addDays(start, -10), lte: end } },
-          orderBy: { date: 'asc' },
-        }),
-        this.prisma.dailySteps.findMany({
-          where: { userId, date: { gte: start, lte: end } },
-        }),
-        this.prisma.activity.findMany({
-          where: {
-            userId,
-            date: { gte: addDays(start, -90), lt: start },
-            exercises: { not: Prisma.DbNull },
-          },
-          select: { exercises: true },
-        }),
-      ]);
+    const [
+      user,
+      activities,
+      meals,
+      water,
+      weights,
+      measures,
+      steps,
+      history,
+      foods,
+    ] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      this.prisma.activity.findMany({ where: { userId, date: range } }),
+      this.prisma.mealEntry.groupBy({
+        by: ['date'],
+        where: { userId, date: range },
+        _sum: { kcal: true, protein: true },
+      }),
+      this.prisma.waterLog.groupBy({
+        by: ['date'],
+        where: { userId, date: range },
+        _sum: { ml: true },
+      }),
+      this.prisma.weightLog.findMany({
+        where: { userId, date: { gte: addDays(start, -4), lte: end } },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.bodyMeasure.findMany({
+        where: { userId, date: { gte: addDays(start, -10), lte: end } },
+        orderBy: { date: 'asc' },
+      }),
+      this.prisma.dailySteps.findMany({
+        where: { userId, date: { gte: start, lte: end } },
+      }),
+      this.prisma.activity.findMany({
+        where: {
+          userId,
+          date: { gte: addDays(start, -90), lt: start },
+          exercises: { not: Prisma.DbNull },
+        },
+        select: { exercises: true },
+      }),
+      this.prisma.mealEntry.findMany({
+        where: { userId, date: range },
+        select: {
+          date: true,
+          name: true,
+          kcal: true,
+          quality: true,
+          qualityTags: true,
+        },
+      }),
+    ]);
 
     const inPeriod = (d: Date) => d >= start && d <= end;
     const inPrev = (d: Date) => d >= prevStart && d < start;
@@ -250,7 +271,7 @@ export class InsightsService {
         (t, a) =>
           t +
           ((a.exercises as Exercise[] | null) ?? []).reduce(
-            (s, e) => s + e.sets.reduce((x, set) => x + set.reps * set.kg, 0),
+            (s, e) => s + setsVolume(e.name, e.sets),
             0,
           ),
         0,
@@ -340,6 +361,15 @@ export class InsightsService {
           tone: ok >= loggedDays.length * 0.5 ? 'good' : 'info',
         });
       }
+      items.push(
+        ...junkInsights(
+          junkStats(foods.filter((f) => inPeriod(f.date))),
+          junkStats(foods.filter((f) => inPrev(f.date))),
+          periodWord,
+          prevWord,
+          loggedDays.length,
+        ),
+      );
     } else {
       items.push({
         emoji: '📒',
@@ -453,4 +483,75 @@ export class InsightsService {
       items,
     };
   }
+}
+
+function junkInsights(
+  cur: JunkStats,
+  prev: JunkStats,
+  periodWord: string,
+  prevWord: string,
+  loggedDays: number,
+): Insight[] {
+  const items: Insight[] = [];
+  if (!cur.totalKcal) return items;
+  const compare = prev.totalKcal ? ` (${prev.badPct}% ${prevWord})` : '';
+  if (cur.badPct >= 40) {
+    items.push({
+      emoji: '🗑️',
+      text: `${cur.badPct}% das calorias ${periodWord} vieram de porcaria${compare}. Isso não é dieta, é rodízio de besteira`,
+      tone: 'warn',
+    });
+  } else if (cur.badPct >= 20) {
+    items.push({
+      emoji: '🍩',
+      text: `${cur.badPct}% das calorias ${periodWord} foram porcaria${compare}. A comida de verdade tá perdendo de lavada`,
+      tone: 'warn',
+    });
+  } else if (cur.badPct <= 8) {
+    items.push({
+      emoji: '🥦',
+      text: `Só ${cur.badPct}% de porcaria ${periodWord}${compare}. Comendo igual gente grande 💪`,
+      tone: loggedDays >= 3 ? 'good' : 'info',
+    });
+  } else {
+    items.push({
+      emoji: '🥗',
+      text: `${cur.badPct}% das calorias ${periodWord} vieram de porcaria${compare}. Dá pra baixar mais`,
+      tone: 'info',
+    });
+  }
+  if (cur.tags.length) {
+    const prevTags = new Map(prev.tags);
+    const list = cur.tags
+      .slice(0, 4)
+      .map(([t, n]) => {
+        const before = prevTags.get(t);
+        const diff = before !== undefined ? ` (${before} antes)` : '';
+        return `${JUNK_LABEL[t].emoji} ${JUNK_LABEL[t].label} ${n}x${diff}`;
+      })
+      .join(', ');
+    items.push({
+      emoji: '🚨',
+      text: `Placar da porcaria: ${list}`,
+      tone: 'warn',
+    });
+  }
+  const [champ] = cur.top;
+  if (champ && champ.kcal >= 300) {
+    items.push({
+      emoji: '🏆',
+      text: `Campeão de porcaria: ${champ.name}${champ.count > 1 ? ` (${champ.count}x)` : ''}, ${Math.round(champ.kcal)} kcal no total`,
+      tone: 'warn',
+    });
+  }
+  const sweet = cur.tags.find(([t]) => t === 'doce')?.[1] ?? 0;
+  const sweetBefore = prev.tags.find(([t]) => t === 'doce')?.[1] ?? 0;
+  if (prev.totalKcal && sweetBefore >= 3 && sweet <= sweetBefore / 2) {
+    items.push({
+      emoji: '👏',
+      text: `Doce caiu de ${sweetBefore} pra ${sweet} vezes. O dentista tá orgulhoso`,
+      tone: 'good',
+    });
+  }
+  return items;
 }

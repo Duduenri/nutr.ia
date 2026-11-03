@@ -171,27 +171,35 @@ model Photo {
 }
 
 model MealEntry {
-  id        String      @id @default(cuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date      DateTime    @db.Date
-  meal      MealType
-  name      String
-  grams     Float
-  kcal      Float
-  protein   Float
-  carbs     Float
-  fat       Float
-  fiber     Float?
-  micros    Json?
-  source    EntrySource
-  foodId    String?
-  food      Food?       @relation(fields: [foodId], references: [id], onDelete: SetNull)
-  photoId   String?
-  photo     Photo?      @relation(fields: [photoId], references: [id], onDelete: SetNull)
-  createdAt DateTime    @default(now())
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime     @db.Date
+  meal        MealType
+  name        String
+  grams       Float
+  kcal        Float
+  protein     Float
+  carbs       Float
+  fat         Float
+  fiber       Float?
+  micros      Json?
+  source      EntrySource
+  foodId      String?
+  food        Food?        @relation(fields: [foodId], references: [id], onDelete: SetNull)
+  photoId     String?
+  photo       Photo?       @relation(fields: [photoId], references: [id], onDelete: SetNull)
+  quality     FoodQuality?
+  qualityTags String[]     @default([])
+  createdAt   DateTime     @default(now())
 
   @@index([userId, date])
+}
+
+enum FoodQuality {
+  GOOD
+  OK
+  BAD
 }
 
 model WaterLog {

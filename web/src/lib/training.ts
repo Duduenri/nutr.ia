@@ -32,15 +32,29 @@ export interface Exercise {
   sets: { reps: number; kg: number }[];
 }
 
+const TIMED =
+  /prancha|plank|isometri|wall sit|cadeirinha|hollow hold|dead hang|farmer|carregamento/;
+const TIMED_LOADED = /farmer|carregamento/;
+
+export function exerciseMode(name: string): { timed: boolean; load: boolean } {
+  const n = name.toLowerCase();
+  const timed = TIMED.test(n);
+  return { timed, load: !timed || TIMED_LOADED.test(n) };
+}
+
 export function exerciseSummary(e: Exercise): string {
   const kg = (v: number) =>
     v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  const { timed } = exerciseMode(e.name);
   const same = e.sets.every(
     (s) => s.reps === e.sets[0].reps && s.kg === e.sets[0].kg,
   );
   if (same) {
     const s = e.sets[0];
-    return `${e.name} ${e.sets.length}×${s.reps}${s.kg ? ` · ${kg(s.kg)} kg` : ""}`;
+    return `${e.name} ${e.sets.length}×${s.reps}${timed ? " s" : ""}${s.kg ? ` · ${kg(s.kg)} kg` : ""}`;
+  }
+  if (timed) {
+    return `${e.name} ${e.sets.map((s) => `${s.reps} s${s.kg ? ` (${kg(s.kg)} kg)` : ""}`).join(", ")}`;
   }
   return `${e.name} ${e.sets.map((s) => `${s.reps}×${kg(s.kg)}`).join(", ")} kg`;
 }

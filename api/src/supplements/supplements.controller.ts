@@ -36,6 +36,7 @@ import { pdfText } from '../exams/exams.service';
 import { redactLabText } from '../exams/redact';
 import { parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { classifyFood } from '../diary/food-quality';
 
 class SupplementDto {
   @IsString()
@@ -220,6 +221,7 @@ export class SupplementsController {
             protein: s.proteinG,
             carbs: 0,
             fat: 0,
+            ...classifyFood(s.name),
             createdAt: takenAt,
           },
         })

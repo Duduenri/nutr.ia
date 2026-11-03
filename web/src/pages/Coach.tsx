@@ -34,16 +34,18 @@ export function CoachPage() {
   const [tab, setTab] = useState<"chat" | "plans">("chat");
   return (
     <div>
-      <header className="pt-safe bg-mint-100 px-4 pb-4">
-        <h1 className="mb-3 text-2xl font-extrabold">Coach 🤖</h1>
-        <Segmented
-          options={[
-            { value: "chat", label: "Conversa" },
-            { value: "plans", label: "Planos" },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
+      <header className="pt-safe sticky top-0 z-30 flex items-center gap-3 bg-mint-100 px-4 pb-3 shadow-sm">
+        <h1 className="shrink-0 text-2xl font-extrabold">Coach 🤖</h1>
+        <div className="flex-1">
+          <Segmented
+            options={[
+              { value: "chat", label: "Conversa" },
+              { value: "plans", label: "Planos" },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+        </div>
       </header>
       {tab === "chat" ? <Chat /> : <Plans />}
     </div>

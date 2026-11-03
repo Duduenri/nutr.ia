@@ -12,7 +12,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { EntrySource, Intensity, MealType, Prisma } from '@prisma/client';
+import {
+  EntrySource,
+  FoodQuality,
+  Intensity,
+  MealType,
+  Prisma,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -20,6 +26,7 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsObject,
@@ -37,6 +44,8 @@ import { ageFrom } from '../profile/nutrition';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiaryService } from './diary.service';
+import { formatSets } from '../training/exercise-format';
+import { classifyFood, JUNK_TAGS, type JunkTag } from './food-quality';
 
 class EntryItemDto {
   @IsString()
@@ -75,6 +84,15 @@ class EntryItemDto {
   @IsOptional()
   @IsString()
   foodId?: string;
+
+  @IsOptional()
+  @IsEnum(FoodQuality)
+  quality?: FoodQuality;
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(JUNK_TAGS, { each: true })
+  qualityTags?: JunkTag[];
 }
 
 class CreateEntriesDto {
@@ -152,10 +170,7 @@ class ExerciseDto {
 
 function exercisesText(exercises: ExerciseDto[] | undefined): string {
   return (exercises ?? [])
-    .map(
-      (e) =>
-        `${e.name}: ${e.sets.map((s) => `${s.reps}x${s.kg}kg`).join(', ')}`,
-    )
+    .map((e) => `${e.name}: ${formatSets(e.name, e.sets, ', ')}`)
     .join('; ');
 }
 
@@ -256,25 +271,72 @@ export class DiaryController {
         this.prisma.photo.findFirst({ where: { id: dto.photoId, userId } }),
       );
     }
-    await this.prisma.mealEntry.createMany({
-      data: dto.items.map((item) => ({
-        userId,
-        date,
-        meal: dto.meal,
-        source: dto.source,
-        photoId: dto.photoId,
-        name: item.name,
-        grams: item.grams,
-        kcal: item.kcal,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        fiber: item.fiber,
-        micros: item.micros,
-        foodId: item.foodId,
+    const foodIds = dto.items.flatMap((i) => (i.foodId ? [i.foodId] : []));
+    const categories = new Map(
+      (
+        await this.prisma.food.findMany({
+          where: { id: { in: foodIds } },
+          select: { id: true, category: true },
+        })
+      ).map((f) => [f.id, f.category]),
+    );
+    const data = dto.items.map((item) => ({
+      userId,
+      date,
+      meal: dto.meal,
+      source: dto.source,
+      photoId: dto.photoId,
+      name: item.name,
+      grams: item.grams,
+      kcal: item.kcal,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fiber: item.fiber,
+      micros: item.micros,
+      foodId: item.foodId,
+      ...(item.quality
+        ? { quality: item.quality, qualityTags: item.qualityTags ?? [] }
+        : classifyFood(item.name, item.foodId && categories.get(item.foodId))),
+    }));
+    await this.prisma.mealEntry.createMany({ data });
+    return { ok: true, junk: await this.junkSummary(userId, date, data) };
+  }
+
+  private async junkSummary(
+    userId: string,
+    date: Date,
+    items: {
+      name: string;
+      kcal: number;
+      quality: FoodQuality;
+      qualityTags: string[];
+    }[],
+  ) {
+    const bad = items.filter((i) => i.quality === 'BAD');
+    if (!bad.length) return null;
+    const [day, user] = await Promise.all([
+      this.prisma.mealEntry.aggregate({
+        where: { userId, date, quality: 'BAD' },
+        _sum: { kcal: true },
+        _count: true,
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { kcalTarget: true, bariatric: true },
+      }),
+    ]);
+    return {
+      items: bad.map((i) => ({
+        name: i.name,
+        kcal: Math.round(i.kcal),
+        tags: i.qualityTags,
       })),
-    });
-    return { ok: true };
+      dayKcal: Math.round(day._sum.kcal ?? 0),
+      dayCount: day._count,
+      targetKcal: user?.kcalTarget ?? 2000,
+      bariatric: user?.bariatric ?? false,
+    };
   }
 
   @Patch('entries/:id')
@@ -289,6 +351,7 @@ export class DiaryController {
     const data: Prisma.MealEntryUpdateInput = {
       meal: dto.meal,
       name: dto.name,
+      ...(dto.name && dto.name !== entry.name ? classifyFood(dto.name) : {}),
     };
     if (dto.grams && entry.grams > 0) {
       const f = dto.grams / entry.grams;

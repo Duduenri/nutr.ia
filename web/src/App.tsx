@@ -11,6 +11,7 @@ import { FastingPage } from "./pages/Fasting";
 import { MissionsPage } from "./pages/Missions";
 import { PetHomePage } from "./pages/PetHome";
 import { Onboarding } from "./pages/Onboarding";
+import { Toaster } from "./components/FoodQuality";
 
 const AddFoodPage = lazy(() =>
   import("./pages/AddFood").then((m) => ({ default: m.AddFoodPage })),
@@ -106,6 +107,7 @@ export default function App() {
 
   return (
     <Suspense fallback={<PageLoader />}>
+      <Toaster />
       <Routes>
         <Route path="/adicionar" element={<AddFoodPage />} />
         <Route path="/loja" element={<ShopPage />} />

@@ -64,6 +64,7 @@ import { shareStory } from "../lib/share";
 import { ProteinCard, SupplementsCard } from "../components/Bariatric";
 import { WaterReminderSheet } from "../components/Reminders";
 import { CheckinCard } from "../components/Checkin";
+import { DayQualityCard, QualityDot } from "../components/FoodQuality";
 import { InsightsBanner } from "../components/Insights";
 
 export function DiaryPage() {
@@ -98,6 +99,7 @@ export function DiaryPage() {
             {date === today() && <InsightsBanner />}
             <CheckinCard date={date} />
             <OverTargetCard diary={data} date={date} />
+            <DayQualityCard diary={data} />
             {profile?.bariatric && (
               <>
                 <ProteinCard diary={data} />
@@ -538,7 +540,10 @@ function Meals({ diary, date }: { diary: Diary; date: string }) {
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-bold">{e.name}</span>
+                      <span className="block truncate font-bold">
+                        <QualityDot quality={e.quality} />
+                        {e.name}
+                      </span>
                       <span className="text-xs text-ink/60">
                         {e.grams > 0 ? `${fmt(e.grams)} g · ` : ""}P{" "}
                         {fmt(e.protein)} · C {fmt(e.carbs)} · G {fmt(e.fat)}

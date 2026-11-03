@@ -13,6 +13,7 @@ import type {
 } from 'openai/resources/responses/responses';
 import * as z from 'zod';
 import { requireEnv } from '../common/env';
+import { JUNK_TAGS } from '../diary/food-quality';
 
 const FoodItemSchema = z.object({
   name: z
@@ -31,6 +32,14 @@ const FoodItemSchema = z.object({
     potassioMg: z.number(),
     vitaminaCMg: z.number(),
   }),
+  quality: z
+    .enum(['GOOD', 'OK', 'BAD'])
+    .describe(
+      'GOOD = comida de verdade (in natura ou minimamente processada); OK = processado comum ou preparo aceitável; BAD = porcaria (doce, fritura de imersão, ultraprocessado, fast food, refrigerante, álcool, embutido gorduroso)',
+    ),
+  qualityTags: z
+    .array(z.enum(JUNK_TAGS))
+    .describe('Motivos de não ser comida de verdade; vazio se for GOOD'),
 });
 
 const FoodAnalysisSchema = z.object({
@@ -61,6 +70,7 @@ A descrição escrita pela pessoa tem prioridade sobre qualquer estimativa:
 
 Para estimar porções em fotos, use referências visuais: tamanho do prato (~26 cm), talheres, copos, mãos.
 Valores nutricionais são do item na porção indicada, não por 100 g.
+Classifique a qualidade de cada item (quality/qualityTags) pelo alimento e pelo preparo: frango grelhado é GOOD, frango frito por imersão é BAD com fritura; café com um pouco de açúcar é OK com doce; refrigerante zero é OK.
 Se a entrada não tiver comida, retorne recognized=false e items vazio.`;
 
 const RecipeSchema = z.object({
@@ -385,6 +395,7 @@ function toInput(history: ChatTurn[]): ResponseInputItem[] {
 
 function coachSystem(context: CoachContext): string {
   return `Você é a Nutri, coach de nutrição e treino de um app pessoal. Fale em português do Brasil, tom carinhoso, direto e motivador, sem julgamentos.
+Sobre qualidade da comida: cada item do diário vem classificado como comida de verdade, ok ou porcaria (doce, fritura, ultraprocessado, refri, álcool, embutido, fast food). Se a pessoa estiver comendo muita porcaria, fale a real com bom humor e uma zoeira leve, sem humilhar nem moralizar, e sempre sugira uma troca concreta e gostosa. Em quem fez bariátrica, doce e gordura em excesso podem causar dumping: aí seja clara sobre o risco.
 Responda de forma curta e prática (é lido no celular). Use listas curtas quando ajudar. Pode usar emojis com moderação.
 Baseie-se nos dados reais da usuária abaixo. Quando sugerir refeições, dê quantidades e macros aproximados.
 Você não substitui nutricionista ou médico: para condições de saúde, gestação, transtornos alimentares ou medicamentos, recomende acompanhamento profissional.

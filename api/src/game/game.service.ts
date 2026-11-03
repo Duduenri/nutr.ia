@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { formatDay } from '../common/date';
+import { formatDay, todayIn } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   Achievement,
@@ -16,6 +16,8 @@ import {
   levelFor,
   ShopItem,
 } from './catalog';
+import { setsVolume } from '../training/exercise-format';
+import { qualityAchievementStats } from '../diary/food-quality';
 
 const DAY_MS = 86_400_000;
 const CARDIO = ['Caminhada', 'Corrida', 'Bicicleta', 'Natação', 'Dança'];
@@ -110,6 +112,7 @@ export class GameService {
       activityRows,
       stepsAgg,
       steps15kDays,
+      foodRows,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.groupBy({
@@ -174,6 +177,10 @@ export class GameService {
       this.prisma.dailySteps.count({
         where: { userId, steps: { gte: 15_000 } },
       }),
+      this.prisma.mealEntry.findMany({
+        where: { userId },
+        select: { date: true, kcal: true, quality: true, qualityTags: true },
+      }),
     ]);
 
     const strength = activityRows.filter(
@@ -201,6 +208,10 @@ export class GameService {
     const target = user.targetWeightKg;
 
     return {
+      ...qualityAchievementStats(
+        foodRows,
+        todayIn(user.timezone ?? 'America/Sao_Paulo'),
+      ),
       meals: mealDays.reduce((s, d) => s + d._count._all, 0),
       photoMeals,
       bestStreak: bestStreak(mealDays.map((d) => formatDay(d.date))),
@@ -247,10 +258,7 @@ export class GameService {
       notes,
       strengthSessions: strength.length,
       liftedKg: Math.round(
-        lifted.reduce(
-          (t, e) => t + e.sets.reduce((s, x) => s + x.reps * x.kg, 0),
-          0,
-        ),
+        lifted.reduce((t, e) => t + setsVolume(e.name, e.sets), 0),
       ),
       distinctExercises: new Set(lifted.map((e) => e.name.trim().toLowerCase()))
         .size,

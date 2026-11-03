@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ExerciseEquivalent } from "../components/ExerciseEquivalent";
+import { showJunkToast } from "../components/FoodQuality";
 import {
   Button,
   ErrorText,
@@ -26,6 +27,7 @@ import {
   type Food,
   type FoodAnalysis,
   type FoodItem,
+  type JunkSummary,
   type MealType,
 } from "../lib/api";
 import { today } from "../lib/date";
@@ -983,8 +985,9 @@ function ReviewSheet({
         const k = `${item.source}|${item.photoId ?? ""}`;
         groups.set(k, [...(groups.get(k) ?? []), item]);
       }
+      const junk: JunkSummary[] = [];
       for (const items of groups.values()) {
-        await api.post("/entries", {
+        const res = await api.post<{ junk: JunkSummary | null }>("/entries", {
           date,
           meal,
           source: items[0].source,
@@ -999,13 +1002,24 @@ function ReviewSheet({
             fiber: item.fiber ?? undefined,
             micros: item.micros ?? undefined,
             foodId: item.foodId ?? undefined,
+            quality: item.quality ?? undefined,
+            qualityTags: item.quality ? item.qualityTags : undefined,
           })),
         });
+        if (res.junk) junk.push(res.junk);
       }
+      return junk;
     },
-    onSuccess: () => {
+    onSuccess: (junk) => {
       invalidate();
       onSaved();
+      if (junk.length) {
+        const last = junk[junk.length - 1];
+        showJunkToast({
+          ...last,
+          items: junk.flatMap((j) => j.items),
+        });
+      }
     },
   });
 

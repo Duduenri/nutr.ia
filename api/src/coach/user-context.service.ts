@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InsightsService } from '../insights/insights.service';
 import { AdaptiveService } from '../profile/adaptive.service';
 import { ageFrom } from '../profile/nutrition';
+import { formatSets } from '../training/exercise-format';
+import { JUNK_LABEL, junkStats } from '../diary/food-quality';
 
 interface Exercise {
   name: string;
@@ -142,10 +144,7 @@ export class UserContextService {
             `${a.distanceKm} km (${Math.round((a.minutes / a.distanceKm) * 10) / 10} min/km)`,
           exercises.length &&
             exercises
-              .map(
-                (e) =>
-                  `${e.name} ${e.sets.map((s) => `${s.reps}x${s.kg}kg`).join(' ')}`,
-              )
+              .map((e) => `${e.name} ${formatSets(e.name, e.sets)}`)
               .join('; '),
           a.details && `obs: ${a.details.slice(0, 300).replace(/\n+/g, ' ')}`,
         ]
@@ -208,14 +207,19 @@ export class UserContextService {
         ? `Fotos de progresso no perfil (${photos.length}): ${photos.map((p) => formatDay(p.date)).join(', ')}. Elas são anexadas quando a pessoa fala de fotos/evolução do corpo.`
         : 'Nenhuma foto de progresso no perfil ainda (ficam em Perfil → Peso → Fotos de progresso).',
     ].join('\n');
-    const [recentCheckins, corr, forecast] = await Promise.all([
+    const [recentCheckins, corr, forecast, weekFoods] = await Promise.all([
       this.prisma.dailyCheckin.findMany({
         where: { userId, date: { gte: addDays(today, -7), lte: today } },
         orderBy: { date: 'asc' },
       }),
       this.insights.correlations(userId, todayRaw),
       this.insights.forecast(userId, todayRaw),
+      this.prisma.mealEntry.findMany({
+        where: { userId, date: { gte: addDays(today, -6), lte: today } },
+        select: { name: true, kcal: true, quality: true, qualityTags: true },
+      }),
     ]);
+    const junk = junkStats(weekFoods);
     const checkinText = [
       recentCheckins.length
         ? `Check-ins (1=ruim, 5=ótimo; fome 1=pouca, 5=muita): ${recentCheckins
@@ -231,6 +235,8 @@ export class UserContextService {
         `Nos dias de sono ruim come em média ${corr.sleepKcal >= 0 ? '+' : ''}${corr.sleepKcal} kcal vs dias de sono bom`,
       corr.hungerKcal !== null &&
         `Nos dias de muita fome come em média ${corr.hungerKcal >= 0 ? '+' : ''}${corr.hungerKcal} kcal`,
+      junk.totalKcal > 0 &&
+        `Qualidade da comida nos últimos 7 dias: ${junk.goodPct}% das kcal de comida de verdade, ${junk.badPct}% de porcaria (${junk.badCount} itens${junk.tags.length ? `: ${junk.tags.map(([t, n]) => `${JUNK_LABEL[t].label} ${n}x`).join(', ')}` : ''})${junk.top.length ? `. Maiores porcarias: ${junk.top.map((t) => `${t.name} (${Math.round(t.kcal)} kcal)`).join(', ')}` : ''}`,
       forecast.status === 'projected' &&
         `Previsão pela tendência do peso: chega a ${forecast.targetKg} kg por volta de ${forecast.date} (${forecast.weeklyKg} kg/semana)${forecast.onTrack === false ? ', depois da data desejada' : ''}`,
     ]

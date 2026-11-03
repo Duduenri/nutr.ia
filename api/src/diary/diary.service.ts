@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { MealEntry, MealType } from '@prisma/client';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { classifyFood } from './food-quality';
 
 export const MEAL_SPLIT: Record<MealType, number> = {
   BREAKFAST: 0.3,
@@ -33,8 +39,35 @@ export function sumEntries(entries: MealEntry[]) {
 }
 
 @Injectable()
-export class DiaryService {
+export class DiaryService implements OnModuleInit {
+  private readonly logger = new Logger(DiaryService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    const pending = await this.prisma.mealEntry.findMany({
+      where: { quality: null },
+      select: { id: true, name: true, food: { select: { category: true } } },
+    });
+    if (!pending.length) return;
+    const groups = new Map<string, string[]>();
+    for (const e of pending) {
+      const r = classifyFood(e.name, e.food?.category);
+      const key = JSON.stringify([r.quality, r.qualityTags]);
+      groups.set(key, [...(groups.get(key) ?? []), e.id]);
+    }
+    for (const [key, ids] of groups) {
+      const [quality, qualityTags] = JSON.parse(key) as [
+        ReturnType<typeof classifyFood>['quality'],
+        string[],
+      ];
+      await this.prisma.mealEntry.updateMany({
+        where: { id: { in: ids } },
+        data: { quality, qualityTags },
+      });
+    }
+    this.logger.log(`Classified food quality of ${pending.length} entries`);
+  }
 
   async day(userId: string, day: string) {
     const date = parseDay(day);

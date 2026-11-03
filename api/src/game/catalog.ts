@@ -333,6 +333,12 @@ export interface AchievementStats {
   totalKm: number;
   longestKm: number;
   cardioMinutes: number;
+  cleanDays: number;
+  cleanStreak: number;
+  realFoodDays: number;
+  noSweetStreak: number;
+  noSodaStreak: number;
+  cleanWeeks: number;
 }
 
 export interface Achievement {
@@ -848,6 +854,62 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: '❤️‍🔥',
     gems: 200,
     check: (s) => s.cardioMinutes >= 300,
+  },
+  {
+    key: 'clean_1',
+    title: 'Dia limpo',
+    description: 'Um dia inteiro (3+ registros) sem nenhuma porcaria',
+    emoji: '🥦',
+    gems: 60,
+    check: (s) => s.cleanDays >= 1,
+  },
+  {
+    key: 'clean_7',
+    title: 'Semana sem lixo',
+    description: '7 dias seguidos sem porcaria',
+    emoji: '🧹',
+    gems: 300,
+    check: (s) => s.cleanStreak >= 7,
+  },
+  {
+    key: 'clean_30',
+    title: 'Monge da alimentação',
+    description: 'Somou 30 dias inteiros sem porcaria',
+    emoji: '🧘',
+    gems: 500,
+    check: (s) => s.cleanDays >= 30,
+  },
+  {
+    key: 'real_food_10',
+    title: 'Comida de verdade',
+    description: '10 dias com 80% ou mais das calorias de comida de verdade',
+    emoji: '🥗',
+    gems: 200,
+    check: (s) => s.realFoodDays >= 10,
+  },
+  {
+    key: 'no_sweet_7',
+    title: 'Desmamou do açúcar',
+    description: '7 dias seguidos registrando tudo sem doce',
+    emoji: '🍬',
+    gems: 250,
+    check: (s) => s.noSweetStreak >= 7,
+  },
+  {
+    key: 'no_soda_30',
+    title: 'Ex-refrigerante',
+    description: '30 dias seguidos registrando tudo sem refri',
+    emoji: '🥤',
+    gems: 400,
+    check: (s) => s.noSodaStreak >= 30,
+  },
+  {
+    key: 'clean_week',
+    title: 'Semana de atleta',
+    description: 'Semana com 5+ dias registrados e menos de 10% de porcaria',
+    emoji: '🏅',
+    gems: 250,
+    check: (s) => s.cleanWeeks >= 1,
   },
 ];
 

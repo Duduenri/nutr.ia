@@ -21,6 +21,7 @@ import {
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { addDays, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { classifyFood } from './food-quality';
 
 class SaveMealDto {
   @IsString()
@@ -52,7 +53,10 @@ class RepeatDto extends LogSavedDto {
 type SavedItem = Pick<
   MealEntry,
   'name' | 'grams' | 'kcal' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'foodId'
-> & { micros: Prisma.JsonValue };
+> &
+  Partial<Pick<MealEntry, 'quality' | 'qualityTags'>> & {
+    micros: Prisma.JsonValue;
+  };
 
 function toItem(e: MealEntry): SavedItem {
   return {
@@ -65,6 +69,8 @@ function toItem(e: MealEntry): SavedItem {
     fiber: e.fiber,
     micros: e.micros,
     foodId: e.foodId,
+    quality: e.quality,
+    qualityTags: e.qualityTags,
   };
 }
 
@@ -157,6 +163,9 @@ export class SavedMealsController {
     return this.prisma.mealEntry.createMany({
       data: items.map((i) => ({
         ...i,
+        ...(i.quality
+          ? { qualityTags: i.qualityTags ?? [] }
+          : classifyFood(i.name)),
         micros: i.micros ?? Prisma.JsonNull,
         userId,
         date,
