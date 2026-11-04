@@ -1,4 +1,19 @@
-import type { Diary, FoodQuality, JunkSummary, JunkTag } from "../lib/api";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import type {
+  Diary,
+  FoodQuality,
+  JunkSummary,
+  JunkTag,
+  NutritionStats,
+} from "../lib/api";
 import { hideToast, showToast, useToast } from "../lib/toast";
 import { Card } from "./ui";
 
@@ -202,6 +217,127 @@ export function DayQualityCard({ diary }: { diary: Diary }) {
             </span>
           ))}
         </div>
+      )}
+    </Card>
+  );
+}
+
+const COLOR: Record<FoodQuality, string> = {
+  GOOD: "#2fb38f",
+  OK: "#ffd85e",
+  BAD: "#e8693a",
+};
+
+function periodVerdict(badPct: number): string {
+  if (badPct >= 40)
+    return `🗑️ ${badPct}% das calorias foram porcaria. Isso não é dieta, é rodízio de besteira`;
+  if (badPct >= 25)
+    return `🍩 ${badPct}% de porcaria. A comida de verdade tá perdendo de lavada`;
+  if (badPct >= 10) return `😬 ${badPct}% de porcaria. Dá pra apertar mais`;
+  return `🥦 Só ${badPct}% de porcaria. Comendo igual gente grande 💪`;
+}
+
+export function NutritionQualityCard({ data }: { data: NutritionStats }) {
+  const q = data.quality;
+  if (!q) return null;
+  const series = data.series.map((s) => ({
+    ...s,
+    label: `${s.date.slice(8, 10)}/${s.date.slice(5, 7)}`,
+  }));
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-lg font-extrabold">Qualidade da comida</h3>
+        <span className="text-xs font-bold text-ink/50">
+          {q.goodPct}% comida de verdade
+        </span>
+      </div>
+      <div className="mt-3 flex h-4 overflow-hidden rounded-full bg-soft">
+        <div className={DOT.GOOD} style={{ width: `${q.goodPct}%` }} />
+        <div className={DOT.OK} style={{ width: `${q.okPct}%` }} />
+        <div className={DOT.BAD} style={{ width: `${q.badPct}%` }} />
+      </div>
+      <div className="mt-2 grid grid-cols-3 text-center text-xs font-bold text-ink/60">
+        <span>
+          <QualityDot quality="GOOD" />
+          Verdade {q.goodPct}%
+        </span>
+        <span>
+          <QualityDot quality="OK" />
+          Ok {q.okPct}%
+        </span>
+        <span>
+          <QualityDot quality="BAD" />
+          Porcaria {q.badPct}%
+        </span>
+      </div>
+      <p className="mt-3 text-sm font-semibold">{periodVerdict(q.badPct)}</p>
+      <div className="mt-3 h-44">
+        <ResponsiveContainer>
+          <BarChart
+            data={series}
+            margin={{ top: 8, right: 6, left: -18, bottom: 0 }}
+          >
+            <CartesianGrid vertical={false} stroke="#eef0f4" />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              interval="preserveStartEnd"
+            />
+            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+            <Tooltip
+              formatter={(v: number, name: string) => [
+                `${v} kcal`,
+                name === "good"
+                  ? "Comida de verdade"
+                  : name === "ok"
+                    ? "Ok"
+                    : "Porcaria",
+              ]}
+            />
+            <Bar dataKey="good" stackId="q" fill={COLOR.GOOD} />
+            <Bar dataKey="ok" stackId="q" fill={COLOR.OK} />
+            <Bar
+              dataKey="bad"
+              stackId="q"
+              fill={COLOR.BAD}
+              radius={[6, 6, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {q.tags.length > 0 && (
+        <>
+          <h4 className="mt-3 text-sm font-extrabold">Placar da porcaria</h4>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {q.tags.map((t) => (
+              <span
+                key={t.tag}
+                className="rounded-full bg-peach-100 px-2.5 py-1 text-xs font-bold"
+              >
+                {LABEL[t.tag].emoji} {LABEL[t.tag].label} {t.count}x
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+      {q.top.length > 0 && (
+        <>
+          <h4 className="mt-3 text-sm font-extrabold">Campeões de porcaria</h4>
+          <ol className="mt-1 space-y-1 text-sm">
+            {q.top.map((t, i) => (
+              <li key={t.name} className="flex justify-between gap-2">
+                <span className="min-w-0 truncate">
+                  {["🥇", "🥈", "🥉"][i]} {t.name}
+                  {t.count > 1 ? ` (${t.count}x)` : ""}
+                </span>
+                <span className="shrink-0 font-bold">{t.kcal} kcal</span>
+              </li>
+            ))}
+          </ol>
+        </>
       )}
     </Card>
   );

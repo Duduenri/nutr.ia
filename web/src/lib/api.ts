@@ -243,9 +243,20 @@ export interface NutritionStats {
     kcal: number | null;
     protein: number | null;
     waterMl: number;
+    good: number;
+    ok: number;
+    bad: number;
   }[];
   ratings: Record<"great" | "good" | "ok" | "bad", number>;
   macros: { protein: number; carbs: number; fat: number } | null;
+  quality: {
+    goodPct: number;
+    okPct: number;
+    badPct: number;
+    badCount: number;
+    tags: { tag: JunkTag; count: number }[];
+    top: { name: string; kcal: number; count: number }[];
+  } | null;
   averageKcal: number | null;
 }
 

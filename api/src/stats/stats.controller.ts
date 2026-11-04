@@ -8,6 +8,8 @@ import {
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { FoodQuality } from '@prisma/client';
+import { junkStats } from '../diary/food-quality';
 
 type Rating = 'great' | 'good' | 'ok' | 'bad';
 
@@ -81,11 +83,23 @@ export class StatsController {
       waterByDay.set(key, (waterByDay.get(key) ?? 0) + w.ml);
     }
 
+    const qualityByDay = new Map<string, Record<FoodQuality, number>>();
+    for (const e of entries) {
+      if (!e.quality) continue;
+      const key = formatDay(e.date);
+      const d = qualityByDay.get(key) ?? { GOOD: 0, OK: 0, BAD: 0 };
+      d[e.quality] += e.kcal;
+      qualityByDay.set(key, d);
+    }
+
     const series: {
       date: string;
       kcal: number | null;
       protein: number | null;
       waterMl: number;
+      good: number;
+      ok: number;
+      bad: number;
     }[] = [];
     const ratings: Record<Rating, number> = {
       great: 0,
@@ -104,6 +118,9 @@ export class StatsController {
         kcal: d ? Math.round(d.kcal) : null,
         protein: d ? Math.round(d.protein) : null,
         waterMl: waterByDay.get(key) ?? 0,
+        good: Math.round(qualityByDay.get(key)?.GOOD ?? 0),
+        ok: Math.round(qualityByDay.get(key)?.OK ?? 0),
+        bad: Math.round(qualityByDay.get(key)?.BAD ?? 0),
       });
       if (d) {
         ratings[rate(d.kcal, target)]++;
@@ -112,6 +129,7 @@ export class StatsController {
         f += d.fat * 9;
       }
     }
+    const junk = junkStats(entries);
     const macroKcal = p + c + f;
     const logged = byDay.size;
     return {
@@ -128,6 +146,20 @@ export class StatsController {
             protein: Math.round((p / macroKcal) * 100),
             carbs: Math.round((c / macroKcal) * 100),
             fat: Math.round((f / macroKcal) * 100),
+          }
+        : null,
+      quality: junk.totalKcal
+        ? {
+            goodPct: junk.goodPct,
+            badPct: junk.badPct,
+            okPct: Math.max(0, 100 - junk.goodPct - junk.badPct),
+            badCount: junk.badCount,
+            tags: junk.tags.map(([tag, count]) => ({ tag, count })),
+            top: junk.top.map((t) => ({
+              name: t.name,
+              kcal: Math.round(t.kcal),
+              count: t.count,
+            })),
           }
         : null,
       averageKcal: logged

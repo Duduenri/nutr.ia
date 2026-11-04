@@ -43,6 +43,7 @@ import {
 import { shiftDay, shortDate, today } from "../lib/date";
 import { previewPace } from "../lib/goal";
 import { useInvalidateDay } from "../lib/hooks";
+import { NutritionQualityCard } from "../components/FoodQuality";
 
 type Tab = "weight" | "nutrition" | "training" | "photos";
 
@@ -498,6 +499,7 @@ function NutritionTab({ profile }: { profile: Profile }) {
               </ResponsiveContainer>
             </div>
           </Card>
+          <NutritionQualityCard data={data} />
           <Card>
             <h3 className="mb-2 text-lg font-extrabold">Avaliação dos dias</h3>
             <p className="mb-2 text-sm text-ink/60">
