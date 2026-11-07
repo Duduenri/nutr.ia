@@ -1,3 +1,4 @@
+import { MICROS, microRef } from "./micros";
 export type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 export type EntrySource =
   | "PHOTO"
@@ -128,6 +129,31 @@ export interface JunkSummary {
   bariatric: boolean;
 }
 
+export interface FreeMealSlot {
+  date: string;
+  meal: MealType;
+  swapped: boolean;
+}
+
+export interface FreeMealState {
+  enabled: boolean;
+  weekday: number | null;
+  meal: MealType | null;
+  bariatric: boolean;
+  today: string;
+  week: FreeMealSlot | null;
+}
+
+export const WEEKDAY_LABEL = [
+  "Domingo",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+];
+
 export interface Entry extends FoodItem {
   id: string;
   meal: MealType;
@@ -158,8 +184,10 @@ export interface Diary {
   burned: number;
   burnedCredit: number;
   steps: number;
+  freeMeal: FreeMealSlot | null;
   meals: {
     meal: MealType;
+    free: boolean;
     targetKcal: number;
     kcal: number;
     yesterdayCount: number;
@@ -246,6 +274,7 @@ export interface NutritionStats {
     good: number;
     ok: number;
     bad: number;
+    free: number;
   }[];
   ratings: Record<"great" | "good" | "ok" | "bad", number>;
   macros: { protein: number; carbs: number; fat: number } | null;
@@ -253,6 +282,8 @@ export interface NutritionStats {
     goodPct: number;
     okPct: number;
     badPct: number;
+    freePct: number;
+    freeCount: number;
     badCount: number;
     tags: { tag: JunkTag; count: number }[];
     top: { name: string; kcal: number; count: number }[];
@@ -379,16 +410,17 @@ export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
 export const MICRO_LABEL: Record<
   string,
   { label: string; unit: string; ref: number; limit?: boolean }
-> = {
-  sodioMg: { label: "Sódio", unit: "mg", ref: 2000, limit: true },
-  calcioMg: { label: "Cálcio", unit: "mg", ref: 1000 },
-  ferroMg: { label: "Ferro", unit: "mg", ref: 14 },
-  potassioMg: { label: "Potássio", unit: "mg", ref: 3500 },
-  vitaminaCMg: { label: "Vitamina C", unit: "mg", ref: 100 },
-  magnesioMg: { label: "Magnésio", unit: "mg", ref: 420 },
-  zincoMg: { label: "Zinco", unit: "mg", ref: 11 },
-  fosforoMg: { label: "Fósforo", unit: "mg", ref: 700 },
-};
+> = Object.fromEntries(
+  MICROS.map((m) => [
+    m.key,
+    {
+      label: m.label,
+      unit: m.unit,
+      ref: microRef(m.key, null),
+      limit: m.limit,
+    },
+  ]),
+);
 
 export function guessMeal(): MealType {
   const h = new Date().getHours();

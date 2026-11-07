@@ -15,6 +15,7 @@ import { AuthGuard, UserId } from '../auth/auth.guard';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { MISSION_GEMS } from '../game/catalog';
 import { GameService } from '../game/game.service';
+import { FreeMealService } from '../free-meal/free-meal.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 class ClaimDto {
@@ -61,7 +62,7 @@ const MONTHS = [
   'Dezembro',
 ];
 
-function dailyMissions(user: User, d: DayData): Mission[] {
+function dailyMissions(user: User, d: DayData, freeDay: boolean): Mission[] {
   const cup = user.cupSizeMl;
   const cups = Math.ceil((user.waterTargetMl ?? 2000) / cup);
   const meals = new Set(d.entries.map((e) => e.meal)).size;
@@ -88,12 +89,16 @@ function dailyMissions(user: User, d: DayData): Mission[] {
       progress: d.activities > 0 || d.steps >= 6000 ? 1 : 0,
       goal: 1,
     },
-    {
-      key: 'kcal',
-      title: 'Feche o dia dentro da meta de calorias',
-      progress: meals >= 3 && kcal <= target * 1.05 ? 1 : 0,
-      goal: 1,
-    },
+    ...(freeDay
+      ? []
+      : [
+          {
+            key: 'kcal',
+            title: 'Feche o dia dentro da meta de calorias',
+            progress: meals >= 3 && kcal <= target * 1.05 ? 1 : 0,
+            goal: 1,
+          },
+        ]),
   ].map((m) => ({ ...m, progress: Math.min(m.progress, m.goal) }));
 }
 
@@ -108,6 +113,7 @@ export class MissionsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly game: GameService,
+    private readonly freeMeal: FreeMealService,
   ) {}
 
   @Get(':date')
@@ -201,6 +207,7 @@ export class MissionsController {
       weights,
       streakDays,
       fasts,
+      free,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.findMany({ where: { userId, date: range } }),
@@ -224,6 +231,7 @@ export class MissionsController {
           startAt: { gte: weekStart, lt: addDays(date, 1) },
         },
       }),
+      this.freeMeal.checker(userId),
     ]);
 
     const days = new Map<string, DayData>();
@@ -244,13 +252,14 @@ export class MissionsController {
     const today = dailyMissions(
       user,
       days.get(day) ?? { entries: [], waterMl: 0, activities: 0, steps: 0 },
+      free.isFreeDay(day),
     );
 
     let monthDone = 0;
     for (let d = monthStart; d <= date; d = addDays(d, 1)) {
       const data = days.get(formatDay(d));
       if (data) {
-        monthDone += dailyMissions(user, data).filter(
+        monthDone += dailyMissions(user, data, free.isFreeDay(d)).filter(
           (m) => m.progress >= m.goal,
         ).length;
       }

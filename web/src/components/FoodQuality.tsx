@@ -163,9 +163,14 @@ function verdict(badPct: number, count: number, top?: string): string {
 }
 
 export function DayQualityCard({ diary }: { diary: Diary }) {
-  const entries = diary.meals.flatMap((m) => m.entries);
-  const total = entries.reduce((t, e) => t + e.kcal, 0);
-  if (!entries.length || total <= 0) return null;
+  const all = diary.meals.flatMap((m) => m.entries);
+  const entries = diary.meals.filter((m) => !m.free).flatMap((m) => m.entries);
+  const freeKcal = diary.meals
+    .filter((m) => m.free)
+    .flatMap((m) => m.entries)
+    .reduce((t, e) => t + e.kcal, 0);
+  const total = all.reduce((t, e) => t + e.kcal, 0);
+  if (!all.length || total <= 0) return null;
   const kcalOf = (q: FoodQuality) =>
     entries.filter((e) => e.quality === q).reduce((t, e) => t + e.kcal, 0);
   const share = {
@@ -173,6 +178,7 @@ export function DayQualityCard({ diary }: { diary: Diary }) {
     OK: (kcalOf("OK") / total) * 100,
     BAD: (kcalOf("BAD") / total) * 100,
   };
+  const freeShare = (freeKcal / total) * 100;
   const bad = entries
     .filter((e) => e.quality === "BAD")
     .sort((a, b) => b.kcal - a.kcal);
@@ -190,6 +196,7 @@ export function DayQualityCard({ diary }: { diary: Diary }) {
         {(["GOOD", "OK", "BAD"] as FoodQuality[]).map((q) => (
           <div key={q} className={DOT[q]} style={{ width: `${share[q]}%` }} />
         ))}
+        <div className={FREE_DOT} style={{ width: `${freeShare}%` }} />
       </div>
       <div className="mt-1.5 flex gap-3 text-[11px] font-bold text-ink/50">
         {(["GOOD", "OK", "BAD"] as FoodQuality[]).map((q) => (
@@ -198,9 +205,12 @@ export function DayQualityCard({ diary }: { diary: Diary }) {
             {DOT_TITLE[q]}
           </span>
         ))}
+        {freeKcal > 0 && <FreeLegend />}
       </div>
       <p className="mt-2 text-sm font-semibold">
-        {verdict(badPct, entries.length, bad[0]?.name.toLowerCase())}
+        {entries.length
+          ? verdict(badPct, entries.length, bad[0]?.name.toLowerCase())
+          : "🍕 Só refeição livre até agora. Aproveita!"}
       </p>
       {bad.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -222,11 +232,25 @@ export function DayQualityCard({ diary }: { diary: Diary }) {
   );
 }
 
-const COLOR: Record<FoodQuality, string> = {
+const COLOR: Record<FoodQuality | "FREE", string> = {
   GOOD: "#2fb38f",
   OK: "#ffd85e",
   BAD: "#e8693a",
+  FREE: "#8b6fd6",
 };
+
+const FREE_DOT = "bg-grape-500";
+
+function FreeLegend() {
+  return (
+    <span className="flex items-center">
+      <span
+        className={`mr-1.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full align-middle ${FREE_DOT}`}
+      />
+      Refeição livre
+    </span>
+  );
+}
 
 function periodVerdict(badPct: number): string {
   if (badPct >= 40)
@@ -256,6 +280,7 @@ export function NutritionQualityCard({ data }: { data: NutritionStats }) {
         <div className={DOT.GOOD} style={{ width: `${q.goodPct}%` }} />
         <div className={DOT.OK} style={{ width: `${q.okPct}%` }} />
         <div className={DOT.BAD} style={{ width: `${q.badPct}%` }} />
+        <div className={FREE_DOT} style={{ width: `${q.freePct}%` }} />
       </div>
       <div className="mt-2 grid grid-cols-3 text-center text-xs font-bold text-ink/60">
         <span>
@@ -271,6 +296,13 @@ export function NutritionQualityCard({ data }: { data: NutritionStats }) {
           Porcaria {q.badPct}%
         </span>
       </div>
+      {q.freeCount > 0 && (
+        <p className="mt-1 flex justify-center text-xs font-bold text-ink/60">
+          <FreeLegend />
+          &nbsp;{q.freePct}% ({q.freeCount}{" "}
+          {q.freeCount === 1 ? "item" : "itens"}, fora da conta)
+        </p>
+      )}
       <p className="mt-3 text-sm font-semibold">{periodVerdict(q.badPct)}</p>
       <div className="mt-3 h-44">
         <ResponsiveContainer>
@@ -294,15 +326,18 @@ export function NutritionQualityCard({ data }: { data: NutritionStats }) {
                   ? "Comida de verdade"
                   : name === "ok"
                     ? "Ok"
-                    : "Porcaria",
+                    : name === "free"
+                      ? "Refeição livre"
+                      : "Porcaria",
               ]}
             />
             <Bar dataKey="good" stackId="q" fill={COLOR.GOOD} />
             <Bar dataKey="ok" stackId="q" fill={COLOR.OK} />
+            <Bar dataKey="bad" stackId="q" fill={COLOR.BAD} />
             <Bar
-              dataKey="bad"
+              dataKey="free"
               stackId="q"
-              fill={COLOR.BAD}
+              fill={COLOR.FREE}
               radius={[6, 6, 0, 0]}
             />
           </BarChart>

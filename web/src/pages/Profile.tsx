@@ -44,8 +44,10 @@ import { shiftDay, shortDate, today } from "../lib/date";
 import { previewPace } from "../lib/goal";
 import { useInvalidateDay } from "../lib/hooks";
 import { NutritionQualityCard } from "../components/FoodQuality";
+import { FreeMealForm } from "../components/FreeMeal";
+import { VitaminsTab } from "../components/Vitamins";
 
-type Tab = "weight" | "nutrition" | "training" | "photos";
+type Tab = "weight" | "nutrition" | "vitamins" | "training" | "photos";
 
 export function ProfilePage({ profile }: { profile: Profile }) {
   const [tab, setTab] = useState<Tab>("weight");
@@ -90,6 +92,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
             [
               ["weight", "Peso"],
               ["nutrition", "Nutrição"],
+              ["vitamins", "Vitaminas"],
               ["training", "Treinos"],
               ["photos", "Fotos"],
             ] as [Tab, string][]
@@ -97,7 +100,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex-1 border-b-4 py-3 text-lg font-extrabold ${
+              className={`flex-1 border-b-4 py-3 text-[15px] font-extrabold ${
                 tab === id
                   ? "border-ink text-ink"
                   : "border-transparent text-ink/40"
@@ -111,6 +114,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
       <div className="space-y-4 px-4 pt-4">
         {tab === "weight" && <WeightTab profile={profile} />}
         {tab === "nutrition" && <NutritionTab profile={profile} />}
+        {tab === "vitamins" && <VitaminsTab profile={profile} />}
         {tab === "training" && <TrainingTab />}
         {tab === "photos" && <PhotosTab />}
       </div>
@@ -710,7 +714,13 @@ function SettingsSheet({
 }) {
   const qc = useQueryClient();
   const [section, setSection] = useState<
-    "menu" | "profile" | "targets" | "steps" | "reminders" | "routine"
+    | "menu"
+    | "profile"
+    | "targets"
+    | "freeMeal"
+    | "steps"
+    | "reminders"
+    | "routine"
   >("menu");
   const close = () => {
     setSection("menu");
@@ -733,6 +743,7 @@ function SettingsSheet({
           menu: "Configurações",
           profile: "Meus dados",
           targets: "Metas diárias",
+          freeMeal: "Refeição livre",
           steps: "Passos do iPhone",
           reminders: "Notificações",
           routine: "Minha rotina de treino",
@@ -746,6 +757,7 @@ function SettingsSheet({
               [
                 ["profile", "👤 Meus dados e objetivo"],
                 ["targets", "🎯 Ajustar metas e copo de água"],
+                ["freeMeal", "🍕 Refeição livre"],
                 ["reminders", "🔔 Notificações e lembrete de água"],
                 ["routine", "🏋️ Minha rotina de treino"],
                 ["steps", "👟 Importar passos do iPhone"],
@@ -779,6 +791,7 @@ function SettingsSheet({
         {section === "targets" && (
           <TargetsForm profile={profile} onDone={close} />
         )}
+        {section === "freeMeal" && <FreeMealForm onDone={close} />}
         {section === "steps" && <StepsHelp token={profile.stepsToken} />}
         {section === "reminders" && <WaterReminderForm onDone={close} />}
         {section === "routine" && <RoutineManager />}

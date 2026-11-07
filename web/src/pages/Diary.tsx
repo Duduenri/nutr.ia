@@ -65,6 +65,8 @@ import { ProteinCard, SupplementsCard } from "../components/Bariatric";
 import { WaterReminderSheet } from "../components/Reminders";
 import { CheckinCard } from "../components/Checkin";
 import { DayQualityCard, QualityDot } from "../components/FoodQuality";
+import { FreeMealDayCard } from "../components/FreeMeal";
+import { microRef } from "../lib/micros";
 import { InsightsBanner } from "../components/Insights";
 
 export function DiaryPage() {
@@ -98,6 +100,7 @@ export function DiaryPage() {
           <>
             {date === today() && <InsightsBanner />}
             <CheckinCard date={date} />
+            <FreeMealDayCard date={date} />
             <OverTargetCard diary={data} date={date} />
             <DayQualityCard diary={data} />
             {profile?.bariatric && (
@@ -365,6 +368,7 @@ function NutrientSheet({
   nutrient: string | null;
   onClose: () => void;
 }) {
+  const { data: profile } = useProfile();
   if (!nutrient)
     return (
       <Sheet open={false} onClose={onClose}>
@@ -374,7 +378,7 @@ function NutrientSheet({
   const macro = isMacro(nutrient);
   const info = macro
     ? { ...MACRO_INFO[nutrient], ref: diary.targets[nutrient], limit: false }
-    : MICRO_LABEL[nutrient];
+    : { ...MICRO_LABEL[nutrient], ref: microRef(nutrient, profile?.sex) };
   const amountOf = (e: Entry) =>
     macro ? (e[nutrient] ?? 0) : (e.micros?.[nutrient] ?? 0);
   const total = macro
@@ -492,6 +496,11 @@ function Meals({ diary, date }: { diary: Diary; date: string }) {
               <span>
                 <span className="block text-lg font-extrabold">
                   {MEAL_LABEL[m.meal]}
+                  {m.free && (
+                    <span className="ml-1.5 rounded-full bg-grape-100 px-2 py-0.5 align-middle text-xs font-bold">
+                      🍕 livre
+                    </span>
+                  )}
                 </span>
                 <span className="text-sm font-semibold text-ink/50">
                   {fmt(m.kcal)} / {fmt(m.targetKcal)} kcal
@@ -1740,7 +1749,7 @@ function OverTargetCard({ diary, date }: { diary: Diary; date: string }) {
       api.post("/activities", { date, ...a }),
     onSuccess: invalidate,
   });
-  if (over < 50) return null;
+  if (over < 50 || diary.freeMeal) return null;
 
   return (
     <Card className="border-2 border-sky/60">

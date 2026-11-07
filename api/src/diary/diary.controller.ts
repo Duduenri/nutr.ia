@@ -46,6 +46,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DiaryService } from './diary.service';
 import { formatSets } from '../training/exercise-format';
 import { classifyFood, JUNK_TAGS, type JunkTag } from './food-quality';
+import { FreeMealService } from '../free-meal/free-meal.service';
 
 class EntryItemDto {
   @IsString()
@@ -256,6 +257,7 @@ export class DiaryController {
     private readonly prisma: PrismaService,
     private readonly diary: DiaryService,
     private readonly ai: AiService,
+    private readonly freeMeal: FreeMealService,
   ) {}
 
   @Get('diary/:date')
@@ -300,7 +302,15 @@ export class DiaryController {
         : classifyFood(item.name, item.foodId && categories.get(item.foodId))),
     }));
     await this.prisma.mealEntry.createMany({ data });
-    return { ok: true, junk: await this.junkSummary(userId, date, data) };
+    const freeMeal = (await this.freeMeal.checker(userId)).slotOn(date);
+    if (freeMeal?.meal === dto.meal) {
+      return { ok: true, junk: null, freeMeal: true };
+    }
+    return {
+      ok: true,
+      junk: await this.junkSummary(userId, date, data, freeMeal?.meal),
+      freeMeal: false,
+    };
   }
 
   private async junkSummary(
@@ -312,12 +322,18 @@ export class DiaryController {
       quality: FoodQuality;
       qualityTags: string[];
     }[],
+    freeMeal?: MealType,
   ) {
     const bad = items.filter((i) => i.quality === 'BAD');
     if (!bad.length) return null;
     const [day, user] = await Promise.all([
       this.prisma.mealEntry.aggregate({
-        where: { userId, date, quality: 'BAD' },
+        where: {
+          userId,
+          date,
+          quality: 'BAD',
+          ...(freeMeal ? { meal: { not: freeMeal } } : {}),
+        },
         _sum: { kcal: true },
         _count: true,
       }),

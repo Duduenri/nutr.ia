@@ -12,6 +12,7 @@ export default {
         peach: { 100: '#fde1d6', 400: '#f6a07c', 500: '#e8693a' },
         sun: '#ffd85e',
         sky: '#a8d8f5',
+        grape: { 100: '#ece4fb', 500: '#8b6fd6' },
         soft: '#f4f6fa',
       },
       boxShadow: {

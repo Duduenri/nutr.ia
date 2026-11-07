@@ -7,6 +7,8 @@ import { AdaptiveService } from '../profile/adaptive.service';
 import { ageFrom } from '../profile/nutrition';
 import { formatSets } from '../training/exercise-format';
 import { JUNK_LABEL, junkStats } from '../diary/food-quality';
+import { FreeMealService } from '../free-meal/free-meal.service';
+import { describeFreeMeal } from '../free-meal/free-meal';
 
 interface Exercise {
   name: string;
@@ -25,6 +27,7 @@ export class UserContextService {
     private readonly prisma: PrismaService,
     private readonly adaptive: AdaptiveService,
     private readonly insights: InsightsService,
+    private readonly freeMeal: FreeMealService,
   ) {}
 
   async build(userId: string, todayRaw: string) {
@@ -40,6 +43,8 @@ export class UserContextService {
       labs,
       documents,
       activities,
+      freeMealState,
+      free,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.findMany({ where: { userId, date: today } }),
@@ -67,6 +72,8 @@ export class UserContextService {
         where: { userId, date: { gte: addDays(today, -30), lte: today } },
         orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       }),
+      this.freeMeal.state(userId),
+      this.freeMeal.checker(userId),
     ]);
 
     const profile = [
@@ -83,6 +90,7 @@ export class UserContextService {
       weights.length &&
         `Pesagens recentes: ${weights.map((w) => `${formatDay(w.date)} ${w.kg} kg`).join(', ')}`,
       `Metas diárias: ${user.kcalTarget} kcal, ${user.proteinTarget} g proteína, ${user.carbsTarget} g carboidrato, ${user.fatTarget} g gordura, ${user.waterTargetMl} ml água`,
+      describeFreeMeal(freeMealState, freeMealState.week, formatDay(today)),
     ]
       .filter(Boolean)
       .join('\n');
@@ -216,10 +224,19 @@ export class UserContextService {
       this.insights.forecast(userId, todayRaw),
       this.prisma.mealEntry.findMany({
         where: { userId, date: { gte: addDays(today, -6), lte: today } },
-        select: { name: true, kcal: true, quality: true, qualityTags: true },
+        select: {
+          date: true,
+          meal: true,
+          name: true,
+          kcal: true,
+          quality: true,
+          qualityTags: true,
+        },
       }),
     ]);
-    const junk = junkStats(weekFoods);
+    const junk = junkStats(
+      weekFoods.map((f) => ({ ...f, free: free.isFreeMeal(f.date, f.meal) })),
+    );
     const checkinText = [
       recentCheckins.length
         ? `Check-ins (1=ruim, 5=ótimo; fome 1=pouca, 5=muita): ${recentCheckins
@@ -236,7 +253,7 @@ export class UserContextService {
       corr.hungerKcal !== null &&
         `Nos dias de muita fome come em média ${corr.hungerKcal >= 0 ? '+' : ''}${corr.hungerKcal} kcal`,
       junk.totalKcal > 0 &&
-        `Qualidade da comida nos últimos 7 dias: ${junk.goodPct}% das kcal de comida de verdade, ${junk.badPct}% de porcaria (${junk.badCount} itens${junk.tags.length ? `: ${junk.tags.map(([t, n]) => `${JUNK_LABEL[t].label} ${n}x`).join(', ')}` : ''})${junk.top.length ? `. Maiores porcarias: ${junk.top.map((t) => `${t.name} (${Math.round(t.kcal)} kcal)`).join(', ')}` : ''}`,
+        `Qualidade da comida nos últimos 7 dias: ${junk.goodPct}% das kcal de comida de verdade, ${junk.badPct}% de porcaria fora da refeição livre (${junk.badCount} itens${junk.tags.length ? `: ${junk.tags.map(([t, n]) => `${JUNK_LABEL[t].label} ${n}x`).join(', ')}` : ''})${junk.top.length ? `. Maiores porcarias: ${junk.top.map((t) => `${t.name} (${Math.round(t.kcal)} kcal)`).join(', ')}` : ''}`,
       forecast.status === 'projected' &&
         `Previsão pela tendência do peso: chega a ${forecast.targetKg} kg por volta de ${forecast.date} (${forecast.weeklyKg} kg/semana)${forecast.onTrack === false ? ', depois da data desejada' : ''}`,
     ]

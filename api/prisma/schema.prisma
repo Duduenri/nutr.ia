@@ -91,6 +91,10 @@ model User {
   fiberTarget        Int?
   waterTargetMl      Int?
   cupSizeMl          Int            @default(250)
+  freeMealEnabled    Boolean        @default(false)
+  freeMealWeekday    Int?
+  freeMeal           MealType?
+  freeMealSince      DateTime?      @db.Date
   stepsToken         String         @unique @default(cuid())
   createdAt          DateTime       @default(now())
 
@@ -129,6 +133,7 @@ model User {
   routines            WorkoutRoutine[]
   gameDays            GameDay[]
   checkins            DailyCheckin[]
+  freeMealWeeks       FreeMealWeek[]
 }
 
 model Food {
@@ -621,4 +626,16 @@ model DailyCheckin {
   updatedAt  DateTime @updatedAt
 
   @@id([userId, date])
+}
+
+model FreeMealWeek {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart DateTime @db.Date
+  date      DateTime @db.Date
+  meal      MealType
+  swapped   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, weekStart])
 }

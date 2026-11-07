@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ExerciseEquivalent } from "../components/ExerciseEquivalent";
 import { showJunkToast } from "../components/FoodQuality";
+import { showFreeMealToast } from "../components/FreeMeal";
 import {
   Button,
   ErrorText,
@@ -986,8 +987,12 @@ function ReviewSheet({
         groups.set(k, [...(groups.get(k) ?? []), item]);
       }
       const junk: JunkSummary[] = [];
+      let freeMeal = false;
       for (const items of groups.values()) {
-        const res = await api.post<{ junk: JunkSummary | null }>("/entries", {
+        const res = await api.post<{
+          junk: JunkSummary | null;
+          freeMeal: boolean;
+        }>("/entries", {
           date,
           meal,
           source: items[0].source,
@@ -1007,13 +1012,16 @@ function ReviewSheet({
           })),
         });
         if (res.junk) junk.push(res.junk);
+        freeMeal ||= res.freeMeal;
       }
-      return junk;
+      return { junk, freeMeal };
     },
-    onSuccess: (junk) => {
+    onSuccess: ({ junk, freeMeal }) => {
       invalidate();
       onSaved();
-      if (junk.length) {
+      if (freeMeal) {
+        showFreeMealToast();
+      } else if (junk.length) {
         const last = junk[junk.length - 1];
         showJunkToast({
           ...last,

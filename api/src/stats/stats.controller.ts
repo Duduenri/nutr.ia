@@ -10,6 +10,8 @@ import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import { FoodQuality } from '@prisma/client';
 import { junkStats } from '../diary/food-quality';
+import { FreeMealService } from '../free-meal/free-meal.service';
+import { normalize } from '../common/text';
 
 type Rating = 'great' | 'good' | 'ok' | 'bad';
 
@@ -24,7 +26,10 @@ function rate(kcal: number, target: number): Rating {
 @Controller('stats')
 @UseGuards(AuthGuard)
 export class StatsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly freeMeal: FreeMealService,
+  ) {}
 
   @Get('weight')
   async weight(@UserId() userId: string) {
@@ -57,12 +62,17 @@ export class StatsController {
     const start = addDays(end, -(days - 1));
     const range = { gte: start, lte: end };
 
-    const [user, entries, water] = await Promise.all([
+    const [user, rawEntries, water, free] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.mealEntry.findMany({ where: { userId, date: range } }),
       this.prisma.waterLog.findMany({ where: { userId, date: range } }),
+      this.freeMeal.checker(userId),
     ]);
     const target = user.kcalTarget ?? 2000;
+    const entries = rawEntries.map((e) => ({
+      ...e,
+      free: free.isFreeMeal(e.date, e.meal),
+    }));
 
     const byDay = new Map<
       string,
@@ -83,12 +93,15 @@ export class StatsController {
       waterByDay.set(key, (waterByDay.get(key) ?? 0) + w.ml);
     }
 
-    const qualityByDay = new Map<string, Record<FoodQuality, number>>();
+    const qualityByDay = new Map<
+      string,
+      Record<FoodQuality | 'FREE', number>
+    >();
     for (const e of entries) {
-      if (!e.quality) continue;
+      if (!e.quality && !e.free) continue;
       const key = formatDay(e.date);
-      const d = qualityByDay.get(key) ?? { GOOD: 0, OK: 0, BAD: 0 };
-      d[e.quality] += e.kcal;
+      const d = qualityByDay.get(key) ?? { GOOD: 0, OK: 0, BAD: 0, FREE: 0 };
+      d[e.free ? 'FREE' : e.quality!] += e.kcal;
       qualityByDay.set(key, d);
     }
 
@@ -100,6 +113,7 @@ export class StatsController {
       good: number;
       ok: number;
       bad: number;
+      free: number;
     }[] = [];
     const ratings: Record<Rating, number> = {
       great: 0,
@@ -121,9 +135,10 @@ export class StatsController {
         good: Math.round(qualityByDay.get(key)?.GOOD ?? 0),
         ok: Math.round(qualityByDay.get(key)?.OK ?? 0),
         bad: Math.round(qualityByDay.get(key)?.BAD ?? 0),
+        free: Math.round(qualityByDay.get(key)?.FREE ?? 0),
       });
       if (d) {
-        ratings[rate(d.kcal, target)]++;
+        if (!free.isFreeDay(key)) ratings[rate(d.kcal, target)]++;
         p += d.protein * 4;
         c += d.carbs * 4;
         f += d.fat * 9;
@@ -132,13 +147,14 @@ export class StatsController {
     const junk = junkStats(entries);
     const macroKcal = p + c + f;
     const logged = byDay.size;
+    const rated = Object.values(ratings).reduce((t, v) => t + v, 0);
     return {
       target,
       series,
       ratings: Object.fromEntries(
         Object.entries(ratings).map(([k, v]) => [
           k,
-          logged ? Math.round((v / logged) * 100) : 0,
+          rated ? Math.round((v / rated) * 100) : 0,
         ]),
       ),
       macros: macroKcal
@@ -152,7 +168,9 @@ export class StatsController {
         ? {
             goodPct: junk.goodPct,
             badPct: junk.badPct,
-            okPct: Math.max(0, 100 - junk.goodPct - junk.badPct),
+            okPct: Math.max(0, 100 - junk.goodPct - junk.badPct - junk.freePct),
+            freePct: junk.freePct,
+            freeCount: junk.freeCount,
             badCount: junk.badCount,
             tags: junk.tags.map(([tag, count]) => ({ tag, count })),
             top: junk.top.map((t) => ({
@@ -167,6 +185,70 @@ export class StatsController {
             [...byDay.values()].reduce((s, d) => s + d.kcal, 0) / logged,
           )
         : null,
+    };
+  }
+
+  @Get('micros')
+  async micros(
+    @UserId() userId: string,
+    @Query('days') daysRaw: string,
+    @Query('end') endRaw: string,
+  ) {
+    const days = parseInt(daysRaw, 10);
+    if (![1, 7, 30].includes(days)) {
+      throw new BadRequestException('days deve ser 1, 7 ou 30');
+    }
+    const end = parseDay(endRaw);
+    const entries = await this.prisma.mealEntry.findMany({
+      where: { userId, date: { gte: addDays(end, -(days - 1)), lte: end } },
+      select: { date: true, name: true, micros: true },
+    });
+    const loggedDays = new Set(entries.map((e) => formatDay(e.date))).size;
+    type Source = { name: string; amount: number; count: number };
+    const acc = new Map<
+      string,
+      { total: number; withData: number; sources: Map<string, Source> }
+    >();
+    for (const e of entries) {
+      const micros = (e.micros ?? {}) as Record<string, unknown>;
+      for (const [key, raw] of Object.entries(micros)) {
+        if (typeof raw !== 'number' || !Number.isFinite(raw)) continue;
+        const n = acc.get(key) ?? {
+          total: 0,
+          withData: 0,
+          sources: new Map<string, Source>(),
+        };
+        n.total += raw;
+        n.withData++;
+        if (raw > 0) {
+          const k = normalize(e.name);
+          const src = n.sources.get(k) ?? { name: e.name, amount: 0, count: 0 };
+          n.sources.set(k, {
+            ...src,
+            amount: src.amount + raw,
+            count: src.count + 1,
+          });
+        }
+        acc.set(key, n);
+      }
+    }
+    return {
+      days,
+      loggedDays,
+      entries: entries.length,
+      nutrients: Object.fromEntries(
+        [...acc].map(([key, n]) => [
+          key,
+          {
+            avg: loggedDays ? n.total / loggedDays : 0,
+            coverage: entries.length ? n.withData / entries.length : 0,
+            top: [...n.sources.values()]
+              .sort((a, b) => b.amount - a.amount)
+              .slice(0, 5)
+              .map((t) => ({ ...t, amount: t.amount / loggedDays })),
+          },
+        ]),
+      ),
     };
   }
 }

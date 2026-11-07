@@ -25,13 +25,30 @@ const FoodItemSchema = z.object({
   carbs: z.number().describe('Carboidratos em gramas'),
   fat: z.number().describe('Gorduras totais em gramas'),
   fiber: z.number().describe('Fibras em gramas'),
-  micros: z.object({
-    sodioMg: z.number(),
-    calcioMg: z.number(),
-    ferroMg: z.number(),
-    potassioMg: z.number(),
-    vitaminaCMg: z.number(),
-  }),
+  micros: z
+    .object({
+      sodioMg: z.number(),
+      calcioMg: z.number(),
+      ferroMg: z.number(),
+      potassioMg: z.number(),
+      magnesioMg: z.number(),
+      zincoMg: z.number(),
+      fosforoMg: z.number(),
+      vitaminaCMg: z.number(),
+      retinolMcg: z.number().describe('Vitamina A (mcg RAE)'),
+      tiaminaMg: z.number().describe('Vitamina B1'),
+      riboflavinaMg: z.number().describe('Vitamina B2'),
+      niacinaMg: z.number().describe('Vitamina B3'),
+      piridoxinaMg: z.number().describe('Vitamina B6'),
+      folatoMcg: z.number().describe('Vitamina B9 / folato (mcg)'),
+      vitaminaB12Mcg: z.number(),
+      vitaminaDMcg: z.number(),
+      vitaminaEMg: z.number(),
+      colesterolMg: z.number(),
+    })
+    .describe(
+      'Vitaminas e minerais da porção inteira (não por 100 g), estimados por tabelas como TACO/USDA; use 0 quando o alimento não tem',
+    ),
   quality: z
     .enum(['GOOD', 'OK', 'BAD'])
     .describe(

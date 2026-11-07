@@ -192,7 +192,7 @@ export class FoodsController {
         carbs: num(n['carbohydrates_100g']),
         fat: num(n['fat_100g']),
         fiber: num(n['fiber_100g']),
-        micros: { sodioMg: num(n['sodium_100g']) * 1000 },
+        micros: offMicros(n),
         servingG: num(product.serving_quantity) || null,
       },
     });
@@ -230,4 +230,35 @@ export class FoodsController {
       return null;
     }
   }
+}
+
+const OFF_MICROS: [string, string, number][] = [
+  ['sodioMg', 'sodium_100g', 1000],
+  ['calcioMg', 'calcium_100g', 1000],
+  ['ferroMg', 'iron_100g', 1000],
+  ['potassioMg', 'potassium_100g', 1000],
+  ['magnesioMg', 'magnesium_100g', 1000],
+  ['zincoMg', 'zinc_100g', 1000],
+  ['fosforoMg', 'phosphorus_100g', 1000],
+  ['vitaminaCMg', 'vitamin-c_100g', 1000],
+  ['retinolMcg', 'vitamin-a_100g', 1_000_000],
+  ['tiaminaMg', 'vitamin-b1_100g', 1000],
+  ['riboflavinaMg', 'vitamin-b2_100g', 1000],
+  ['niacinaMg', 'vitamin-pp_100g', 1000],
+  ['piridoxinaMg', 'vitamin-b6_100g', 1000],
+  ['folatoMcg', 'vitamin-b9_100g', 1_000_000],
+  ['vitaminaB12Mcg', 'vitamin-b12_100g', 1_000_000],
+  ['vitaminaDMcg', 'vitamin-d_100g', 1_000_000],
+  ['vitaminaEMg', 'vitamin-e_100g', 1000],
+  ['colesterolMg', 'cholesterol_100g', 1000],
+];
+
+function offMicros(n: Record<string, unknown>): Record<string, number> {
+  const micros: Record<string, number> = {};
+  for (const [key, off, factor] of OFF_MICROS) {
+    if (n[off] === undefined || n[off] === null || n[off] === '') continue;
+    const value = Number(n[off]) * factor;
+    if (Number.isFinite(value)) micros[key] = value;
+  }
+  return micros;
 }

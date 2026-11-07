@@ -13,6 +13,8 @@ import { ExamsController } from './exams/exams.controller';
 import { ExamsService } from './exams/exams.service';
 import { FastingController } from './fasting/fasting.controller';
 import { FoodsController } from './foods/foods.controller';
+import { FreeMealController } from './free-meal/free-meal.controller';
+import { FreeMealService } from './free-meal/free-meal.service';
 import { ChallengesController } from './friends/challenges.controller';
 import { ChallengesService } from './friends/challenges.service';
 import { FriendsController } from './friends/friends.controller';
@@ -57,6 +59,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     RoutinesController,
     DiaryController,
     FoodsController,
+    FreeMealController,
     AiController,
     PhotosController,
     StatsController,
@@ -89,6 +92,7 @@ import { SupplementsController } from './supplements/supplements.controller';
     ExamsService,
     PushService,
     RemindersService,
+    FreeMealService,
   ],
 })
 export class AppModule {}

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
+import { FreeMealService } from '../free-meal/free-meal.service';
 import { setsVolume } from '../training/exercise-format';
 import { JUNK_LABEL, junkStats, type JunkStats } from '../diary/food-quality';
 
@@ -57,7 +58,10 @@ const dm = (d: Date) =>
 
 @Injectable()
 export class InsightsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly freeMeal: FreeMealService,
+  ) {}
 
   async forecast(userId: string, todayRaw: string) {
     const today = parseDay(todayRaw.slice(0, 10));
@@ -217,7 +221,8 @@ export class InsightsService {
       measures,
       steps,
       history,
-      foods,
+      rawFoods,
+      free,
     ] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.activity.findMany({ where: { userId, date: range } }),
@@ -254,13 +259,19 @@ export class InsightsService {
         where: { userId, date: range },
         select: {
           date: true,
+          meal: true,
           name: true,
           kcal: true,
           quality: true,
           qualityTags: true,
         },
       }),
+      this.freeMeal.checker(userId),
     ]);
+    const foods = rawFoods.map((f) => ({
+      ...f,
+      free: free.isFreeMeal(f.date, f.meal),
+    }));
 
     const inPeriod = (d: Date) => d >= start && d <= end;
     const inPrev = (d: Date) => d >= prevStart && d < start;
@@ -348,17 +359,19 @@ export class InsightsService {
           tone: hit >= loggedDays.length * 0.6 ? 'good' : 'warn',
         });
       }
-      if (user.kcalTarget) {
-        const ok = loggedDays.filter(
+      const ratedDays = loggedDays.filter((m) => !free.isFreeDay(m.date));
+      if (user.kcalTarget && ratedDays.length) {
+        const ok = ratedDays.filter(
           (m) =>
             Math.abs((m._sum.kcal ?? 0) - user.kcalTarget!) /
               user.kcalTarget! <=
             0.1,
         ).length;
+        const freeDays = loggedDays.length - ratedDays.length;
         items.push({
           emoji: '🎯',
-          text: `${ok} de ${loggedDays.length} dias dentro da meta de calorias (${loggedDays.length} de ${days} dias registrados)`,
-          tone: ok >= loggedDays.length * 0.5 ? 'good' : 'info',
+          text: `${ok} de ${ratedDays.length} dias dentro da meta de calorias (${loggedDays.length} de ${days} dias registrados${freeDays ? `, ${freeDays} com refeição livre fora da conta` : ''})`,
+          tone: ok >= ratedDays.length * 0.5 ? 'good' : 'info',
         });
       }
       items.push(

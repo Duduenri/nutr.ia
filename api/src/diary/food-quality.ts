@@ -147,10 +147,14 @@ interface QualityEntry {
   kcal: number;
   quality: FoodQuality | null;
   qualityTags: string[];
+  free?: boolean;
 }
 
-export function junkStats(entries: QualityEntry[]) {
-  const total = entries.reduce((t, e) => t + e.kcal, 0);
+export function junkStats(all: QualityEntry[]) {
+  const total = all.reduce((t, e) => t + e.kcal, 0);
+  const free = all.filter((e) => e.free);
+  const entries = all.filter((e) => !e.free);
+  const freeKcal = free.reduce((t, e) => t + e.kcal, 0);
   const bad = entries.filter((e) => e.quality === 'BAD');
   const good = entries.filter((e) => e.quality === 'GOOD');
   const badKcal = bad.reduce((t, e) => t + e.kcal, 0);
@@ -176,6 +180,9 @@ export function junkStats(entries: QualityEntry[]) {
     badCount: bad.length,
     badPct: total ? Math.round((badKcal / total) * 100) : 0,
     goodPct: total ? Math.round((goodKcal / total) * 100) : 0,
+    freeKcal: Math.round(freeKcal),
+    freeCount: free.length,
+    freePct: total ? Math.round((freeKcal / total) * 100) : 0,
     tags: (Object.entries(tags) as [JunkTag, number][]).sort(
       (a, b) => b[1] - a[1],
     ),
@@ -204,6 +211,7 @@ export function qualityAchievementStats(
     kcal: number;
     quality: FoodQuality | null;
     qualityTags: string[];
+    free?: boolean;
   }[],
   today: string,
 ) {
@@ -215,10 +223,10 @@ export function qualityAchievementStats(
   }
   const full = [...days].filter(([, list]) => list.length >= 3);
   const clean = full
-    .filter(([, list]) => list.every((e) => e.quality !== 'BAD'))
+    .filter(([, list]) => list.every((e) => e.free || e.quality !== 'BAD'))
     .map(([d]) => d);
   const realFood = full.filter(([, list]) => {
-    const total = list.reduce((t, e) => t + e.kcal, 0);
+    const total = list.filter((e) => !e.free).reduce((t, e) => t + e.kcal, 0);
     const good = list
       .filter((e) => e.quality === 'GOOD')
       .reduce((t, e) => t + e.kcal, 0);
@@ -229,7 +237,8 @@ export function qualityAchievementStats(
       full
         .filter(([, list]) =>
           list.every(
-            (e) => e.quality !== 'BAD' || !e.qualityTags.includes(tag),
+            (e) =>
+              e.free || e.quality !== 'BAD' || !e.qualityTags.includes(tag),
           ),
         )
         .map(([d]) => d),
@@ -242,7 +251,7 @@ export function qualityAchievementStats(
     const w = weeks.get(k) ?? { days: 0, total: 0, bad: 0 };
     for (const e of list) {
       w.total += e.kcal;
-      if (e.quality === 'BAD') w.bad += e.kcal;
+      if (e.quality === 'BAD' && !e.free) w.bad += e.kcal;
     }
     weeks.set(k, { ...w, days: w.days + 1 });
   }

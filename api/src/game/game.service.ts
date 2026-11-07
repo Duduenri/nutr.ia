@@ -18,6 +18,7 @@ import {
 } from './catalog';
 import { setsVolume } from '../training/exercise-format';
 import { qualityAchievementStats } from '../diary/food-quality';
+import { FreeMealService } from '../free-meal/free-meal.service';
 
 const DAY_MS = 86_400_000;
 const CARDIO = ['Caminhada', 'Corrida', 'Bicicleta', 'Natação', 'Dança'];
@@ -60,7 +61,10 @@ function bestStreak(days: string[]): number {
 
 @Injectable()
 export class GameService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly freeMeal: FreeMealService,
+  ) {}
 
   async gems(userId: string) {
     const [all, earned] = await Promise.all([
@@ -179,9 +183,16 @@ export class GameService {
       }),
       this.prisma.mealEntry.findMany({
         where: { userId },
-        select: { date: true, kcal: true, quality: true, qualityTags: true },
+        select: {
+          date: true,
+          meal: true,
+          kcal: true,
+          quality: true,
+          qualityTags: true,
+        },
       }),
     ]);
+    const free = await this.freeMeal.checker(userId);
 
     const strength = activityRows.filter(
       (a) => Array.isArray(a.exercises) && a.exercises.length > 0,
@@ -209,7 +220,7 @@ export class GameService {
 
     return {
       ...qualityAchievementStats(
-        foodRows,
+        foodRows.map((r) => ({ ...r, free: free.isFreeMeal(r.date, r.meal) })),
         todayIn(user.timezone ?? 'America/Sao_Paulo'),
       ),
       meals: mealDays.reduce((s, d) => s + d._count._all, 0),
@@ -241,6 +252,7 @@ export class GameService {
       kcalDays: kcalTarget
         ? mealDays.filter(
             (d) =>
+              !free.isFreeDay(d.date) &&
               Math.abs((d._sum.kcal ?? 0) - kcalTarget) / kcalTarget <= 0.1,
           ).length
         : 0,
