@@ -97,7 +97,9 @@ export class BodyController {
     await this.prisma.bodyMeasure.upsert({
       where: { userId_date: { userId, date } },
       create: { userId, date, ...values },
-      update: values,
+      update: Object.fromEntries(
+        Object.entries(values).filter(([, v]) => v !== null),
+      ),
     });
     return { ok: true };
   }

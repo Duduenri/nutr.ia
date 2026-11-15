@@ -11,11 +11,12 @@ interface Macros {
 }
 
 interface AdaptiveEstimate {
-  status: "not_applicable" | "collecting" | "unreliable" | "ready";
+  status: "not_applicable" | "collecting" | "unreliable" | "cooldown" | "ready";
   windowDays: number;
   loggedDays: number;
   minLoggedDays: number;
   weighIns: number;
+  minWeighIns: number;
   weightSpanDays: number;
   minWeightSpanDays: number;
   avgIntake: number | null;
@@ -26,6 +27,7 @@ interface AdaptiveEstimate {
   current: Macros;
   suggested: Macros | null;
   capped: boolean;
+  nextApplyDay: string | null;
 }
 
 function signed(v: number, digits = 0) {
@@ -53,7 +55,8 @@ export function AdaptiveCard() {
 
   if (data.status === "collecting") {
     const weightOk =
-      data.weighIns >= 2 && data.weightSpanDays >= data.minWeightSpanDays;
+      data.weighIns >= data.minWeighIns &&
+      data.weightSpanDays >= data.minWeightSpanDays;
     return (
       <Card>
         <h3 className="text-lg font-extrabold">🔬 Seu gasto real</h3>
@@ -78,9 +81,11 @@ export function AdaptiveCard() {
           </div>
           <div className="flex justify-between font-bold">
             <span>
-              ⚖️ Pesagens com {data.minWeightSpanDays}+ dias entre elas
+              ⚖️ {data.minWeighIns}+ pesagens em {data.minWeightSpanDays}+ dias
             </span>
-            <span>{weightOk ? "✓" : `${data.weighIns} pesagem(ns)`}</span>
+            <span>
+              {weightOk ? "✓" : `${data.weighIns}/${data.minWeighIns}`}
+            </span>
           </div>
         </div>
         <p className="mt-2 text-xs text-ink/50">
@@ -96,9 +101,10 @@ export function AdaptiveCard() {
       <Card>
         <h3 className="text-lg font-extrabold">🔬 Seu gasto real</h3>
         <p className="mt-1 text-sm text-ink/60">
-          Os números das últimas semanas ficaram estranhos (talvez alguma
-          refeição não registrada ou pesagem em horário diferente). Continue
-          registrando que eu recalculo.
+          Os números das últimas semanas ficaram estranhos: o gasto calculado
+          ficou muito longe do esperado pro seu corpo (talvez pesagens em
+          horários diferentes ou refeições com calorias erradas). Mantive sua
+          meta. Continue registrando e se pesando em jejum que eu recalculo.
         </p>
       </Card>
     );
@@ -164,7 +170,14 @@ export function AdaptiveCard() {
         )}
       </div>
       <ErrorText error={apply.error} />
-      {!same && (
+      {!same && data.status === "cooldown" && (
+        <p className="mt-3 text-center text-xs text-ink/50">
+          Você ajustou a meta há pouco. Espere uma semana pro corpo responder;
+          libero o próximo ajuste em{" "}
+          {data.nextApplyDay?.split("-").reverse().join("/")}.
+        </p>
+      )}
+      {!same && data.status === "ready" && (
         <Button
           className="mt-3 w-full"
           loading={apply.isPending}

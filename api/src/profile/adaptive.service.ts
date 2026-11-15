@@ -11,12 +11,15 @@ import {
 
 const WINDOW_DAYS = 28;
 const MIN_LOGGED_DAYS = 10;
-const MIN_WEIGHT_SPAN_DAYS = 10;
+const MIN_WEIGHT_SPAN_DAYS = 14;
+const MIN_WEIGH_INS = 4;
 const MAX_STEP_KCAL = 300;
+const MAX_FORMULA_DEVIATION = 0.25;
+const COOLDOWN_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 export type AdaptiveStatus =
-  'not_applicable' | 'collecting' | 'unreliable' | 'ready';
+  'not_applicable' | 'collecting' | 'unreliable' | 'cooldown' | 'ready';
 
 export interface AdaptiveEstimate {
   status: AdaptiveStatus;
@@ -24,6 +27,7 @@ export interface AdaptiveEstimate {
   loggedDays: number;
   minLoggedDays: number;
   weighIns: number;
+  minWeighIns: number;
   weightSpanDays: number;
   minWeightSpanDays: number;
   avgIntake: number | null;
@@ -39,6 +43,7 @@ export interface AdaptiveEstimate {
     fat: number;
   } | null;
   capped: boolean;
+  nextApplyDay: string | null;
 }
 
 function slopePerDay(points: { t: number; kg: number }[]): number {
@@ -133,6 +138,7 @@ export class AdaptiveService {
       loggedDays: logged.length,
       minLoggedDays: MIN_LOGGED_DAYS,
       weighIns: points.length,
+      minWeighIns: MIN_WEIGH_INS,
       weightSpanDays: span,
       minWeightSpanDays: MIN_WEIGHT_SPAN_DAYS,
       avgIntake: logged.length
@@ -145,13 +151,14 @@ export class AdaptiveService {
       current,
       suggested: null,
       capped: false,
+      nextApplyDay: null,
     };
     if (user.bariatric || !user.sex || !user.goal || !current.kcal) {
       return { ...base, status: 'not_applicable' };
     }
     if (
       logged.length < MIN_LOGGED_DAYS ||
-      points.length < 2 ||
+      points.length < MIN_WEIGH_INS ||
       span < MIN_WEIGHT_SPAN_DAYS
     ) {
       return base;
@@ -164,7 +171,11 @@ export class AdaptiveService {
       weeklyChangeKg: Math.round(slope * 7 * 100) / 100,
       tdee,
     };
-    if (tdee < 1000 || tdee > 5000) {
+    if (
+      tdee < 1000 ||
+      tdee > 5000 ||
+      (formula && Math.abs(tdee - formula) > formula * MAX_FORMULA_DEVIATION)
+    ) {
       return { ...result, status: 'unreliable' as const };
     }
 
@@ -175,11 +186,15 @@ export class AdaptiveService {
     );
     const kcal = Math.round((current.kcal + step) / 50) * 50;
     const { fat, carbs } = splitMacros(kcal, current.protein);
+    const nextApply = user.adaptiveAppliedAt
+      ? addDays(parseDay(formatDay(user.adaptiveAppliedAt)), COOLDOWN_DAYS)
+      : null;
     return {
       ...result,
-      status: 'ready',
+      status: nextApply && nextApply > today ? 'cooldown' : 'ready',
       suggested: { kcal, protein: current.protein, carbs, fat },
       capped: Math.abs(ideal - current.kcal) > MAX_STEP_KCAL,
+      nextApplyDay: nextApply ? formatDay(nextApply) : null,
     };
   }
 }

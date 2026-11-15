@@ -138,6 +138,11 @@ export class ProfileController {
   async applyAdaptive(@UserId() userId: string, @Query('today') today: string) {
     parseDay(today);
     const estimate = await this.adaptive.estimate(userId, today);
+    if (estimate.status === 'cooldown') {
+      throw new BadRequestException(
+        `Meta ajustada há pouco, próximo ajuste a partir de ${estimate.nextApplyDay}`,
+      );
+    }
     if (estimate.status !== 'ready' || !estimate.suggested) {
       throw new BadRequestException('Ainda não há dados suficientes');
     }
@@ -147,6 +152,7 @@ export class ProfileController {
         kcalTarget: estimate.suggested.kcal,
         carbsTarget: estimate.suggested.carbs,
         fatTarget: estimate.suggested.fat,
+        adaptiveAppliedAt: new Date(),
       },
     });
     return this.get(userId);
