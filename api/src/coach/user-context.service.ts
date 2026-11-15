@@ -194,7 +194,9 @@ export class UserContextService {
       waistCm: 'cintura',
       hipCm: 'quadril',
       chestCm: 'peito',
+      shoulderCm: 'ombro',
       armCm: 'braço',
+      forearmCm: 'antebraço',
       thighCm: 'coxa',
       bodyFatPct: '% gordura',
     } as const;

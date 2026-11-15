@@ -28,7 +28,9 @@ const FIELDS = [
   'waistCm',
   'hipCm',
   'chestCm',
+  'shoulderCm',
   'armCm',
+  'forearmCm',
   'thighCm',
   'bodyFatPct',
 ] as const;
@@ -40,7 +42,9 @@ class MeasureDto {
   @IsOptional() @IsNumber() @Min(20) @Max(250) waistCm?: number;
   @IsOptional() @IsNumber() @Min(20) @Max(250) hipCm?: number;
   @IsOptional() @IsNumber() @Min(20) @Max(250) chestCm?: number;
+  @IsOptional() @IsNumber() @Min(50) @Max(200) shoulderCm?: number;
   @IsOptional() @IsNumber() @Min(10) @Max(100) armCm?: number;
+  @IsOptional() @IsNumber() @Min(10) @Max(80) forearmCm?: number;
   @IsOptional() @IsNumber() @Min(20) @Max(150) thighCm?: number;
   @IsOptional() @IsNumber() @Min(2) @Max(70) bodyFatPct?: number;
 }

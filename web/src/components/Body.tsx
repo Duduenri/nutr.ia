@@ -15,7 +15,14 @@ import { shrinkImage } from "../lib/image";
 import { Button, Card, ErrorText, Field, fmt, inputClass, Sheet } from "./ui";
 
 type MeasureKey =
-  "waistCm" | "hipCm" | "chestCm" | "armCm" | "thighCm" | "bodyFatPct";
+  | "waistCm"
+  | "hipCm"
+  | "chestCm"
+  | "shoulderCm"
+  | "armCm"
+  | "forearmCm"
+  | "thighCm"
+  | "bodyFatPct";
 
 type Measure = { id: string; date: string } & Record<MeasureKey, number | null>;
 
@@ -28,7 +35,9 @@ const MEASURES: { key: MeasureKey; label: string; unit: string }[] = [
   { key: "waistCm", label: "Cintura", unit: "cm" },
   { key: "hipCm", label: "Quadril", unit: "cm" },
   { key: "chestCm", label: "Peito", unit: "cm" },
+  { key: "shoulderCm", label: "Ombro", unit: "cm" },
   { key: "armCm", label: "Braço", unit: "cm" },
+  { key: "forearmCm", label: "Antebraço", unit: "cm" },
   { key: "thighCm", label: "Coxa", unit: "cm" },
   { key: "bodyFatPct", label: "Gordura", unit: "%" },
 ];

@@ -558,7 +558,9 @@ model BodyMeasure {
   waistCm    Float?
   hipCm      Float?
   chestCm    Float?
+  shoulderCm Float?
   armCm      Float?
+  forearmCm  Float?
   thighCm    Float?
   bodyFatPct Float?
   createdAt  DateTime @default(now())
