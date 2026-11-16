@@ -87,7 +87,7 @@ A descrição escrita pela pessoa tem prioridade sobre qualquer estimativa:
 
 Para estimar porções em fotos, use referências visuais: tamanho do prato (~26 cm), talheres, copos, mãos.
 Valores nutricionais são do item na porção indicada, não por 100 g.
-Classifique a qualidade de cada item (quality/qualityTags) pelo alimento e pelo preparo: frango grelhado é GOOD, frango frito por imersão é BAD com fritura; café com um pouco de açúcar é OK com doce; refrigerante zero é OK.
+Classifique a qualidade de cada item (quality/qualityTags) pelo alimento e pelo preparo: frango grelhado é GOOD, frango frito por imersão é BAD com fritura; café com um pouco de açúcar ou uma colher de mel é OK com doce; refrigerante zero é OK. Se marcar algum qualityTag, quality não pode ser GOOD.
 Se a entrada não tiver comida, retorne recognized=false e items vazio.`;
 
 const RecipeSchema = z.object({

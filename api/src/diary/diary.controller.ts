@@ -45,7 +45,12 @@ import { addDays, formatDay, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiaryService } from './diary.service';
 import { formatSets } from '../training/exercise-format';
-import { classifyFood, JUNK_TAGS, type JunkTag } from './food-quality';
+import {
+  classifyFood,
+  JUNK_TAGS,
+  resolveQuality,
+  type JunkTag,
+} from './food-quality';
 import { FreeMealService } from '../free-meal/free-meal.service';
 
 class EntryItemDto {
@@ -297,9 +302,11 @@ export class DiaryController {
       fiber: item.fiber,
       micros: item.micros,
       foodId: item.foodId,
-      ...(item.quality
-        ? { quality: item.quality, qualityTags: item.qualityTags ?? [] }
-        : classifyFood(item.name, item.foodId && categories.get(item.foodId))),
+      ...resolveQuality(
+        item.name,
+        item.foodId && categories.get(item.foodId),
+        item,
+      ),
     }));
     await this.prisma.mealEntry.createMany({ data });
     const freeMeal = (await this.freeMeal.checker(userId)).slotOn(date);

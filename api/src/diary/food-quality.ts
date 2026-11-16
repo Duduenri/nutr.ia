@@ -18,6 +18,8 @@ export interface FoodQualityResult {
 }
 
 const LIGHT = /\b(zero|diet|sem acucar|sem adicao de acucar)\b/;
+const HONEY = /\b(mel|melado)\b/;
+const REFINED = /\b(pao|massa|macarrao|tapioca|pure)\b/;
 
 const RULES: [RegExp, JunkTag, FoodQuality][] = [
   [
@@ -45,8 +47,9 @@ const RULES: [RegExp, JunkTag, FoodQuality][] = [
     'fritura',
     'BAD',
   ],
+  [/\bmaionese verde\b/, 'ultraprocessado', 'BAD'],
   [
-    /\b(salsichas?|mortadela|salame|bacon|linguica calabresa|calabresa|copa|apresuntado|hot ?pocket)\b/,
+    /\b(salsichas?|salsichao|presunto|mortadela|salame|bacon|linguica calabresa|calabresa|copa|apresuntado|hot ?pocket)\b/,
     'embutido',
     'BAD',
   ],
@@ -58,12 +61,9 @@ const RULES: [RegExp, JunkTag, FoodQuality][] = [
 ];
 
 const SOFT: [RegExp, JunkTag][] = [
-  [
-    /\b(presunto|peito de peru|blanquet|linguica|linguicinha|salsichao)\b/,
-    'embutido',
-  ],
+  [/\b(peito de peru|blanquet|linguica|linguicinha)\b/, 'embutido'],
   [/\b(frito|frita|fritos|fritas|fritura)\b/, 'fritura'],
-  [/\b(com acucar|mel)\b/, 'doce'],
+  [/\b(com acucar|mel|melado)\b/, 'doce'],
   [
     /\b(granola|biscoito|bolacha|maionese|ketchup|margarina|requeijao|cream cheese|catupiry)\b/,
     'ultraprocessado',
@@ -71,7 +71,7 @@ const SOFT: [RegExp, JunkTag][] = [
 ];
 
 const GOOD =
-  /\b(arroz|feijao|lentilha|grao[- ]de[- ]bico|ervilha|soja|ovos?|frango|galinha|peito|file|patinho|alcatra|carne|bife|porco|suino|lombo|peixe|tilapia|salmao|atum|sardinha|camarao|alface|tomate|cenoura|brocolis|couve|repolho|abobrinha|abobora|chuchu|beterraba|pepino|rucula|espinafre|legumes?|verduras?|salada|banana|maca|mamao|laranja|tangerina|bergamota|morango|uva|melancia|melao|manga|pera|kiwi|abacaxi|abacate|ameixa|goiaba|maracuja|limao|acai puro|frutas?|batata|batata[- ]doce|mandioca|aipim|inhame|cara|aveia|quinoa|iogurte natural|cottage|ricota|queijo branco|castanhas?|nozes|amendoas|amendoim|chia|linhaca|cafe|cha|chimarrao|agua|leite)\b/;
+  /\b(arroz|feijao|lentilha|grao[- ]de[- ]bico|ervilha|milho|soja|ovos?|frango|galinha|peito|file|patinho|alcatra|carne|bife|costela|costelinha|porco|suino|lombo|peixe|tilapia|salmao|atum|sardinha|camarao|alface|tomate|cenoura|brocolis|couve|repolho|abobrinha|abobora|chuchu|beterraba|pepino|rucula|espinafre|legumes?|verduras?|salada|banana|maca|mamao|laranja|tangerina|bergamota|morango|uva|melancia|melao|manga|pera|kiwi|abacaxi|abacate|ameixa|goiaba|maracuja|limao|acai puro|frutas?|batata|batata[- ]doce|mandioca|aipim|inhame|cara|aveia|quinoa|iogurte natural|cottage|ricota|queijo branco|castanhas?|nozes|amendoas|amendoim|chia|linhaca|cafe|cha|chimarrao|agua|leite)\b/;
 
 const FRYING_EXCEPTIONS = /air ?fryer|sem oleo|assad[oa]|grelhad[oa]|cozid[oa]/;
 
@@ -101,11 +101,14 @@ export function classifyFood(
       continue;
     if (tag === 'doce' && /\bsem acucar\b/.test(n)) continue;
     if (tag === 'fastfood' && /caseir/.test(n)) continue;
-    if (tag === 'doce' && /proteic|whey|protein/.test(n)) continue;
+    if (tag === 'doce' && /proteic|whey|protein/.test(n)) {
+      tags.add('ultraprocessado');
+      continue;
+    }
     tags.add(tag);
     bad = true;
   }
-  if (category === 'Produtos açucarados' && !light) {
+  if (category === 'Produtos açucarados' && !light && !HONEY.test(n)) {
     tags.add('doce');
     bad = true;
   }
@@ -120,12 +123,50 @@ export function classifyFood(
 
   if (
     (category && GOOD_CATEGORIES.includes(category)) ||
-    (GOOD.test(n) &&
-      !/\b(pao|massa|macarrao|tapioca|pure|whey|suplemento)\b/.test(n))
+    (GOOD.test(n) && !REFINED.test(n) && !/\b(whey|suplemento|sabor)\b/.test(n))
   ) {
     return { quality: 'GOOD', qualityTags: [] };
   }
   return { quality: 'OK', qualityTags: [] };
+}
+
+export function resolveQuality(
+  name: string,
+  category: string | null | undefined,
+  ai?: { quality?: FoodQuality | null; qualityTags?: string[] | null },
+): FoodQualityResult {
+  const rule = classifyFood(name, category);
+  if (!ai?.quality) return rule;
+  const aiTags = (ai.qualityTags ?? []).filter(isJunkTag);
+  if (rule.quality === 'BAD') {
+    const onlyGuessedFrying =
+      ai.quality !== 'BAD' &&
+      rule.qualityTags.every((t) => t === 'fritura') &&
+      !/\bfrit/.test(normalize(name));
+    if (!onlyGuessedFrying) {
+      return {
+        quality: 'BAD',
+        qualityTags: [...new Set([...rule.qualityTags, ...aiTags])],
+      };
+    }
+  }
+  if (
+    ai.quality === 'BAD' &&
+    rule.qualityTags.length &&
+    aiTags.every((t) => rule.qualityTags.includes(t))
+  ) {
+    return rule;
+  }
+  if (ai.quality === 'GOOD' && aiTags.length) {
+    return { quality: 'OK', qualityTags: aiTags };
+  }
+  if (ai.quality === 'GOOD' && REFINED.test(normalize(name))) {
+    return { quality: 'OK', qualityTags: [] };
+  }
+  if (ai.quality === 'OK' && !aiTags.length && rule.quality === 'GOOD') {
+    return rule;
+  }
+  return { quality: ai.quality, qualityTags: aiTags };
 }
 
 export function isJunkTag(tag: string): tag is JunkTag {

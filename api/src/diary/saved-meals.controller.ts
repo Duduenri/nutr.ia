@@ -21,7 +21,7 @@ import {
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { addDays, parseDay } from '../common/date';
 import { PrismaService } from '../prisma/prisma.service';
-import { classifyFood } from './food-quality';
+import { resolveQuality } from './food-quality';
 
 class SaveMealDto {
   @IsString()
@@ -163,9 +163,7 @@ export class SavedMealsController {
     return this.prisma.mealEntry.createMany({
       data: items.map((i) => ({
         ...i,
-        ...(i.quality
-          ? { qualityTags: i.qualityTags ?? [] }
-          : classifyFood(i.name)),
+        ...resolveQuality(i.name, null, i),
         micros: i.micros ?? Prisma.JsonNull,
         userId,
         date,
