@@ -137,6 +137,53 @@ const DOT_TITLE: Record<FoodQuality, string> = {
   BAD: "Porcaria",
 };
 
+const REASON: Record<JunkTag, string> = {
+  doce: "tem açúcar",
+  fritura: "frito em óleo",
+  ultraprocessado: "industrializado",
+  refrigerante: "bebida açucarada",
+  alcool: "álcool",
+  embutido: "embutido (sal e conservante)",
+  fastfood: "fast food",
+};
+
+const REASON_COLOR: Record<FoodQuality, string> = {
+  GOOD: "text-mint-500",
+  OK: "text-ink/50",
+  BAD: "text-peach-500",
+};
+
+function qualityReason(
+  quality?: FoodQuality | null,
+  tags: string[] = [],
+): string | null {
+  if (!quality) return null;
+  if (quality === "GOOD") return "Comida de verdade: natural ou caseiro";
+  const why = tags
+    .filter((t): t is JunkTag => t in REASON)
+    .map((t) => REASON[t]);
+  const reason = why.length ? why.join(", ") : "processado";
+  return quality === "BAD" ? `Porcaria: ${reason}` : `Ok: ${reason}`;
+}
+
+export function QualityReason({
+  quality,
+  tags,
+}: {
+  quality?: FoodQuality | null;
+  tags?: string[];
+}) {
+  const text = qualityReason(quality, tags);
+  if (!text || !quality) return null;
+  return (
+    <span
+      className={`block text-[11px] font-semibold ${REASON_COLOR[quality]}`}
+    >
+      {text}
+    </span>
+  );
+}
+
 export function QualityDot({ quality }: { quality?: FoodQuality | null }) {
   if (!quality) return null;
   return (

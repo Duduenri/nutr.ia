@@ -19,7 +19,8 @@ export interface FoodQualityResult {
 
 const LIGHT = /\b(zero|diet|sem acucar|sem adicao de acucar)\b/;
 const HONEY = /\b(mel|melado)\b/;
-const REFINED = /^(pao|massa|macarrao|tapioca|pure)\b/;
+const INDUSTRIAL =
+  /\b(pao de forma|pao de hamburguer|pao de sanduiche|bisnaguinha|folhad[oa]|pastel|sabor)\b/;
 const NOT_SWEET_BASE = /proteic|whey|protein|(pasta|creme) de amendoim/;
 
 const RULES: [RegExp, JunkTag, FoodQuality][] = [
@@ -72,7 +73,7 @@ const SOFT: [RegExp, JunkTag][] = [
 ];
 
 const GOOD =
-  /\b(arroz|feijao|lentilha|grao[- ]de[- ]bico|ervilha|milho|soja|ovos?|frango|galinha|peito|file|patinho|alcatra|carne|bife|costela|costelinha|porco|suino|lombo|peixe|tilapia|salmao|atum|sardinha|camarao|alface|tomate|cenoura|brocolis|couve|repolho|abobrinha|abobora|chuchu|beterraba|pepino|rucula|espinafre|legumes?|verduras?|salada|banana|maca|mamao|laranja|tangerina|bergamota|morango|uva|melancia|melao|manga|pera|kiwi|abacaxi|abacate|ameixa|goiaba|maracuja|limao|acai puro|frutas?|batata|batata[- ]doce|mandioca|aipim|inhame|cara|aveia|quinoa|iogurte natural|cottage|ricota|queijo branco|castanhas?|nozes|amendoas|amendoim|chia|linhaca|cafe|cha|chimarrao|agua|leite)\b/;
+  /\b(arroz|feijao|lentilha|grao[- ]de[- ]bico|ervilha|milho|soja|ovos?|frango|galinha|peito|file|patinho|alcatra|carne|bife|costela|costelinha|porco|suino|lombo|peixe|tilapia|salmao|atum|sardinha|camarao|alface|tomate|cenoura|brocolis|couve|repolho|abobrinha|abobora|chuchu|beterraba|pepino|rucula|espinafre|legumes?|verduras?|salada|banana|maca|mamao|laranja|tangerina|bergamota|morango|uva|melancia|melao|manga|pera|kiwi|abacaxi|abacate|ameixa|goiaba|maracuja|limao|acai puro|frutas?|batata|batata[- ]doce|mandioca|aipim|inhame|cara|aveia|quinoa|iogurte natural|cottage|ricota|queijo branco|castanhas?|nozes|amendoas|amendoim|chia|linhaca|cafe|cha|chimarrao|agua|leite|pao|massa|macarrao|tapioca|pure|whey|proteina em po|suplemento proteico)\b/;
 
 const FRYING_EXCEPTIONS = /air ?fryer|sem oleo|assad[oa]|grelhad[oa]|cozid[oa]/;
 
@@ -124,7 +125,7 @@ export function classifyFood(
 
   if (
     (category && GOOD_CATEGORIES.includes(category)) ||
-    (GOOD.test(n) && !REFINED.test(n) && !/\b(whey|suplemento|sabor)\b/.test(n))
+    (GOOD.test(n) && !INDUSTRIAL.test(n))
   ) {
     return { quality: 'GOOD', qualityTags: [] };
   }
@@ -164,7 +165,7 @@ export function resolveQuality(
   if (ai.quality === 'GOOD' && aiTags.length) {
     return { quality: 'OK', qualityTags: aiTags };
   }
-  if (ai.quality === 'GOOD' && REFINED.test(n)) {
+  if (ai.quality === 'GOOD' && INDUSTRIAL.test(n)) {
     return { quality: 'OK', qualityTags: [] };
   }
   if (ai.quality === 'OK' && !aiTags.length && rule.quality === 'GOOD') {

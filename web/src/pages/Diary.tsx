@@ -64,7 +64,11 @@ import { shareStory } from "../lib/share";
 import { ProteinCard, SupplementsCard } from "../components/Bariatric";
 import { WaterReminderSheet } from "../components/Reminders";
 import { CheckinCard } from "../components/Checkin";
-import { DayQualityCard, QualityDot } from "../components/FoodQuality";
+import {
+  DayQualityCard,
+  QualityDot,
+  QualityReason,
+} from "../components/FoodQuality";
 import { FreeMealDayCard } from "../components/FreeMeal";
 import { microRef } from "../lib/micros";
 import { InsightsBanner } from "../components/Insights";
@@ -557,6 +561,7 @@ function Meals({ diary, date }: { diary: Diary; date: string }) {
                         {e.grams > 0 ? `${fmt(e.grams)} g · ` : ""}P{" "}
                         {fmt(e.protein)} · C {fmt(e.carbs)} · G {fmt(e.fat)}
                       </span>
+                      <QualityReason quality={e.quality} tags={e.qualityTags} />
                     </span>
                     <span className="font-extrabold">{fmt(e.kcal)}</span>
                   </button>
