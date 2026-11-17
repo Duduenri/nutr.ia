@@ -19,7 +19,8 @@ export interface FoodQualityResult {
 
 const LIGHT = /\b(zero|diet|sem acucar|sem adicao de acucar)\b/;
 const HONEY = /\b(mel|melado)\b/;
-const REFINED = /\b(pao|massa|macarrao|tapioca|pure)\b/;
+const REFINED = /^(pao|massa|macarrao|tapioca|pure)\b/;
+const NOT_SWEET_BASE = /proteic|whey|protein|(pasta|creme) de amendoim/;
 
 const RULES: [RegExp, JunkTag, FoodQuality][] = [
   [
@@ -101,7 +102,7 @@ export function classifyFood(
       continue;
     if (tag === 'doce' && /\bsem acucar\b/.test(n)) continue;
     if (tag === 'fastfood' && /caseir/.test(n)) continue;
-    if (tag === 'doce' && /proteic|whey|protein/.test(n)) {
+    if (tag === 'doce' && NOT_SWEET_BASE.test(n)) {
       tags.add('ultraprocessado');
       continue;
     }
@@ -137,12 +138,15 @@ export function resolveQuality(
 ): FoodQualityResult {
   const rule = classifyFood(name, category);
   if (!ai?.quality) return rule;
-  const aiTags = (ai.qualityTags ?? []).filter(isJunkTag);
+  const n = normalize(name);
+  const aiTags = (ai.qualityTags ?? [])
+    .filter(isJunkTag)
+    .filter((t) => !(t === 'doce' && NOT_SWEET_BASE.test(n)));
   if (rule.quality === 'BAD') {
     const onlyGuessedFrying =
       ai.quality !== 'BAD' &&
       rule.qualityTags.every((t) => t === 'fritura') &&
-      !/\bfrit/.test(normalize(name));
+      !/\bfrit/.test(n);
     if (!onlyGuessedFrying) {
       return {
         quality: 'BAD',
@@ -160,7 +164,7 @@ export function resolveQuality(
   if (ai.quality === 'GOOD' && aiTags.length) {
     return { quality: 'OK', qualityTags: aiTags };
   }
-  if (ai.quality === 'GOOD' && REFINED.test(normalize(name))) {
+  if (ai.quality === 'GOOD' && REFINED.test(n)) {
     return { quality: 'OK', qualityTags: [] };
   }
   if (ai.quality === 'OK' && !aiTags.length && rule.quality === 'GOOD') {
